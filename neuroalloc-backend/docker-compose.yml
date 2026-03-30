@@ -1,0 +1,99 @@
+name: neuroalloc-backend
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: neuroalloc-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: neuroalloc
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  go-engine:
+    build:
+      context: .
+      dockerfile: docker/go.Dockerfile
+    container_name: neuroalloc-go-engine
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    environment:
+      GO_ENGINE_PORT: "9090"
+      GO_ENGINE_WORKERS: "4"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: docker/node.Dockerfile
+    container_name: neuroalloc-api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      MONGODB_URI: "mongodb://mongo:27017/neuroalloc"
+      JWT_SECRET: "change-me-in-production"
+      GO_ENGINE_BASE_URL: "http://go-engine:9090"
+      CORS_ORIGIN: "*"
+      BOOTSTRAP_ADMIN_EMAIL: "admin@neuroalloc.local"
+      BOOTSTRAP_ADMIN_PASSWORD: "ChangeMe123!"
+      REQUEST_PROCESSOR_POLL_MS: "500"
+      REQUEST_PROCESSOR_BATCH_SIZE: "10"
+      REQUEST_PROCESSOR_LEASE_MS: "30000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      go-engine:
+        condition: service_started
+
+  prometheus:
+    build:
+      context: .
+      dockerfile: docker/prometheus.Dockerfile
+    container_name: neuroalloc-prometheus
+    restart: unless-stopped
+    ports:
+      - "9091:9090"
+    volumes:
+      - prometheus_data:/prometheus
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts/alert.rules.yml:/etc/prometheus/alerts/alert.rules.yml:ro
+    depends_on:
+      - api-gateway
+      - go-engine
+
+  grafana:
+    build:
+      context: .
+      dockerfile: docker/grafana.Dockerfile
+    container_name: neuroalloc-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
+volumes:
+  mongo_data:
+  prometheus_data:
+  grafana_data:
+

@@ -1,0 +1,10 @@
+**/node_modules/
+**/.env
+**/.DS_Store
+**/dist/
+**/bin/
+
+mongo_data/
+prometheus_data/
+grafana_data/
+
