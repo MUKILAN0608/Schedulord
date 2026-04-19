@@ -61,8 +61,8 @@ export const loginUser = (email: string, password: string) =>
 // Structured Exports
 export const authApi = {
   login: loginUser,
-  register: (email: string, password: string) =>
-    apiFetch('/auth/register', { method: 'POST', body: JSON.stringify({ email, password }), skipAuth: true }),
+  register: (name: string, email: string, password: string, role?: string) =>
+    apiFetch('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password, role }), skipAuth: true }),
 };
 
 export const resourcesApi = {

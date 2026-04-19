@@ -5,12 +5,17 @@ import { logout } from '../store/authSlice'
 import { disconnectSocket } from '../socket'
 import { motion } from 'framer-motion'
 
-const navItems = [
-  { to: '/', label: 'Command Center', icon: '◆' },
-  { to: '/resources', label: 'Resources', icon: '▣' },
-  { to: '/requests', label: 'Requests', icon: '↗' },
-  { to: '/decisions', label: 'Decision Intel', icon: '◎' },
-  { to: '/analytics', label: 'Analytics', icon: '◈' },
+const adminNavItems = [
+  { to: '/panel/dashboard', label: 'Command Center', icon: '◆' },
+  { to: '/panel/resources', label: 'Global Resources', icon: '▣' },
+  { to: '/panel/requests', label: 'All Requests', icon: '↗' },
+  { to: '/panel/decisions', label: 'Decision Intel', icon: '◎' },
+  { to: '/panel/analytics', label: 'Analytics', icon: '◈' },
+]
+
+const clientNavItems = [
+  { to: '/panel/dashboard', label: 'My Dashboard', icon: '◆' },
+  { to: '/panel/requests', label: 'My Requests', icon: '↗' },
 ]
 
 export default function Layout() {
@@ -21,8 +26,10 @@ export default function Layout() {
   const handleLogout = () => {
     disconnectSocket()
     dispatch(logout())
-    navigate('/login')
+    navigate('/')
   }
+
+  const navItems = user?.role === 'admin' ? adminNavItems : clientNavItems;
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -61,15 +68,15 @@ export default function Layout() {
         {/* User */}
         <div className="px-4 py-4 border-t border-[var(--color-glass-border)]">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-full bg-[var(--color-accent-primary)] flex items-center justify-center text-white font-bold text-sm">
-              {user?.email?.[0]?.toUpperCase() || '?'}
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-700 flex items-center justify-center text-black font-black text-sm shadow-[0_0_10px_rgba(234,179,8,0.3)]">
+              {(user?.name || user?.email || '?')[0]?.toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{user?.email}</p>
-              <p className="text-xs text-[#636380] uppercase">{user?.role}</p>
+              <p className="text-sm font-bold text-white truncate">{user?.name || 'Operative'}</p>
+              <p className="text-[10px] text-[#636380] uppercase tracking-widest">{user?.email}</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="w-full btn-secondary text-xs py-2">
+          <button onClick={handleLogout} className="w-full py-2 bg-white/5 hover:bg-white/10 text-white text-xs uppercase tracking-widest font-bold rounded transition-colors">
             Sign Out
           </button>
         </div>

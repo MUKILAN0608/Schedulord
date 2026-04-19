@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { analyticsApi } from '../api'
+import { analyticsApi, requestsApi } from '../api'
+import { useSelector } from 'react-redux'
+import { RootState } from '../store/store'
 import { connectSocket, getSocket } from '../socket'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 
@@ -17,6 +19,11 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [requestForm, setRequestForm] = useState({ resourceType: '', quantity: '1', priority: '50' })
+  const [submitting, setSubmitting] = useState(false)
+
+  const user = useSelector((s: RootState) => s.auth.user)
+  const isClient = user?.role !== 'admin'
 
   useEffect(() => {
     loadData()
@@ -52,6 +59,25 @@ export default function DashboardPage() {
     }
   }
 
+  const handleCreateRequest = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+    try {
+      await requestsApi.create({
+        resourceType: requestForm.resourceType,
+        quantity: Number(requestForm.quantity),
+        priority: Number(requestForm.priority),
+      })
+      setRequestForm({ resourceType: '', quantity: '1', priority: '50' })
+      alert('Request Submitted Successfully to Sovereign Engine')
+      loadData()
+    } catch (err: any) {
+      alert(err.message || 'Failed to submit request')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const pieData = stats ? [
     { name: 'Allocated', value: stats.requests.allocated },
     { name: 'Pending', value: stats.requests.pending },
@@ -84,6 +110,31 @@ export default function DashboardPage() {
           <span className="text-xs text-[var(--color-neon-green)] font-mono">SYSTEM ONLINE</span>
         </div>
       </div>
+
+      {isClient && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6 border border-gold/20 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gold to-transparent"></div>
+          <h3 className="text-lg font-bold text-white mb-2 uppercase tracking-widest text-gold-gradient">Request Allocation</h3>
+          <p className="text-xs text-[#636380] mb-6">Submit a direct compute request to the Engine.</p>
+          <form onSubmit={handleCreateRequest} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div>
+              <label className="block text-[10px] text-gray-500 uppercase font-bold mb-2 tracking-widest">Resource Matrix</label>
+              <input className="w-full bg-white/5 border border-white/5 px-4 py-3 text-sm text-white focus:outline-none focus:border-gold/30 font-light" placeholder="e.g. GPU, Node" value={requestForm.resourceType} onChange={e => setRequestForm({...requestForm, resourceType: e.target.value})} required />
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-500 uppercase font-bold mb-2 tracking-widest">Cycle Quantity</label>
+              <input className="w-full bg-white/5 border border-white/5 px-4 py-3 text-sm text-white focus:outline-none focus:border-gold/30 font-light" type="number" min="1" value={requestForm.quantity} onChange={e => setRequestForm({...requestForm, quantity: e.target.value})} required />
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-500 uppercase font-bold mb-2 tracking-widest">Priority Weight ({requestForm.priority})</label>
+              <input className="w-full mt-2" type="range" min="0" max="100" value={requestForm.priority} onChange={e => setRequestForm({...requestForm, priority: e.target.value})} />
+            </div>
+            <button type="submit" disabled={submitting} className="w-full py-3 gold-button text-xs disabled:opacity-50 h-[46px]">
+              {submitting ? 'Authenticating...' : 'Engage Engine'}
+            </button>
+          </form>
+        </motion.div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
