@@ -4,12 +4,20 @@ const Allocation = require("../models/Allocation");
 const SystemEvent = require("../models/SystemEvent");
 const { getPrediction, runSimulation } = require("../services/goClient");
 const { cacheGet, cacheSet } = require("../config/redis");
+const mongoose = require("mongoose");
 
 // Dashboard overview stats
-async function getDashboardStats(_req, res, next) {
+async function getDashboardStats(req, res, next) {
   try {
-    const cached = await cacheGet("analytics:dashboard");
+    const cacheKey = `analytics:dashboard:${req.user.sub}`;
+    
+    const cached = await cacheGet(cacheKey);
     if (cached) return res.json(cached);
+
+    let userFilter = {};
+    if (req.user.role !== 'admin') {
+      userFilter = { userId: req.user.sub };
+    }
 
     const [
       totalResources,
@@ -18,27 +26,36 @@ async function getDashboardStats(_req, res, next) {
       pendingRequests,
       allocatedRequests,
       rejectedRequests,
-      totalAllocations,
       recentEvents,
+      totalAllocations
     ] = await Promise.all([
       Resource.countDocuments(),
       Resource.countDocuments({ isAvailable: true }),
-      Request.countDocuments(),
-      Request.countDocuments({ status: "pending" }),
-      Request.countDocuments({ status: "allocated" }),
-      Request.countDocuments({ status: "rejected" }),
-      Allocation.countDocuments(),
-      SystemEvent.find().sort({ createdAt: -1 }).limit(20).lean(),
+      Request.countDocuments(userFilter),
+      Request.countDocuments({ ...userFilter, status: "pending" }),
+      Request.countDocuments({ ...userFilter, status: "allocated" }),
+      Request.countDocuments({ ...userFilter, status: "rejected" }),
+      SystemEvent.find(userFilter).sort({ createdAt: -1 }).limit(20).lean(),
+      Request.countDocuments({ ...userFilter, status: "allocated" }), // Allocations matching user
     ]);
 
     const stats = {
-      resources: { total: totalResources, available: availableResources, utilization: totalResources > 0 ? ((totalResources - availableResources) / totalResources * 100).toFixed(1) : 0 },
-      requests: { total: totalRequests, pending: pendingRequests, allocated: allocatedRequests, rejected: rejectedRequests },
+      resources: { 
+        total: totalResources, 
+        available: availableResources, 
+        utilization: totalResources > 0 ? ((totalResources - availableResources) / totalResources * 100).toFixed(1) : 0 
+      },
+      requests: { 
+        total: totalRequests, 
+        pending: pendingRequests, 
+        allocated: allocatedRequests, 
+        rejected: rejectedRequests 
+      },
       allocations: { total: totalAllocations },
       recentEvents,
     };
 
-    await cacheSet("analytics:dashboard", stats, 10);
+    await cacheSet(cacheKey, stats, 10);
     res.json(stats);
   } catch (err) {
     next(err);
@@ -46,7 +63,7 @@ async function getDashboardStats(_req, res, next) {
 }
 
 // Resource utilization breakdown
-async function getResourceUtilization(_req, res, next) {
+async function getResourceUtilization(req, res, next) {
   try {
     const resources = await Resource.find().lean();
     const allocations = await Allocation.find().populate("requestId").lean();
@@ -80,15 +97,23 @@ async function getResourceUtilization(_req, res, next) {
 }
 
 // Demand trends over time (last 7 days, grouped by hour)
-async function getDemandTrends(_req, res, next) {
+async function getDemandTrends(req, res, next) {
   try {
-    const cached = await cacheGet("analytics:demand-trends");
+    const cacheKey = `analytics:demand-trends:${req.user.sub}`;
+    
+    const cached = await cacheGet(cacheKey);
     if (cached) return res.json(cached);
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const matchStage = { 
+      createdAt: { $gte: sevenDaysAgo }
+    };
+    if (req.user.role !== 'admin') {
+      matchStage.userId = new mongoose.Types.ObjectId(req.user.sub);
+    }
 
     const trends = await Request.aggregate([
-      { $match: { createdAt: { $gte: sevenDaysAgo } } },
+      { $match: matchStage },
       {
         $group: {
           _id: {
@@ -105,7 +130,7 @@ async function getDemandTrends(_req, res, next) {
     ]);
 
     const result = { trends, generatedAt: new Date() };
-    await cacheSet("analytics:demand-trends", result, 60);
+    await cacheSet(cacheKey, result, 60);
     res.json(result);
   } catch (err) {
     next(err);
@@ -113,9 +138,19 @@ async function getDemandTrends(_req, res, next) {
 }
 
 // Allocation performance metrics
-async function getAllocationMetrics(_req, res, next) {
+async function getAllocationMetrics(req, res, next) {
   try {
-    const allocations = await Allocation.find().sort({ createdAt: -1 }).limit(100).lean();
+    let requestFilter = {};
+    if (req.user.role !== 'admin') {
+      requestFilter = { userId: req.user.sub };
+    }
+    const userRequests = await Request.find(requestFilter, '_id').lean();
+    const requestIds = userRequests.map(r => r._id);
+
+    const allocations = await Allocation.find({ requestId: { $in: requestIds } })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
 
     const scores = allocations.map(a => a.score).filter(Boolean);
     const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
@@ -147,7 +182,12 @@ async function getSystemEvents(req, res, next) {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 200);
     const type = req.query.type;
-    const filter = type ? { type } : {};
+    
+    let filter = {};
+    if (req.user.role !== 'admin') {
+      filter.userId = req.user.sub;
+    }
+    if (type) filter.type = type;
 
     const events = await SystemEvent.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
     res.json({ events });

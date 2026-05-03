@@ -1,12 +1,19 @@
-FROM node:20-alpine AS deps
-WORKDIR /app
-COPY backend/api-gateway/package.json backend/api-gateway/package-lock.json* ./
-RUN npm ci --omit=dev
+# ---------- DEPS ----------
+FROM node:18-alpine AS deps
 
-FROM node:20-alpine
 WORKDIR /app
+COPY backend/api-gateway/package*.json ./
+RUN npm install --production
+
+# ---------- APP ----------
+FROM node:18-alpine
+
+WORKDIR /app
+
 ENV NODE_ENV=production
+
 COPY --from=deps /app/node_modules ./node_modules
-COPY backend/api-gateway/ ./
-EXPOSE 8080
-CMD ["node", "src/app.js"]
+COPY backend/api-gateway/ .
+
+# ✅ USE THIS (safe)
+CMD ["npm", "start"]

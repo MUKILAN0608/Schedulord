@@ -1,0 +1,3 @@
+github.com/prometheus/client_golang/prometheus/internal: write C:\Users\Mukil\AppData\Local\Temp\go-build75304083\b280\importcfg: There is not enough space on the disk.
+github.com/prometheus/common/expfmt: write C:\Users\Mukil\AppData\Local\Temp\go-build75304083\b299\importcfg: There is not enough space on the disk.
+github.com/segmentio/kafka-go: write C:\Users\Mukil\AppData\Local\Temp\go-build75304083\b310\importcfg: There is not enough space on the disk.

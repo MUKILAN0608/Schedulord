@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"os"
+	"os/signal"
 	"runtime"
 	"strconv"
+	"syscall"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -12,6 +15,7 @@ import (
 	"schedulord-go-engine/internal/conflict"
 	"schedulord-go-engine/internal/engine"
 	"schedulord-go-engine/internal/handlers"
+	kafkaConsumer "schedulord-go-engine/internal/kafka"
 	"schedulord-go-engine/internal/learning"
 	"schedulord-go-engine/internal/metrics"
 	"schedulord-go-engine/internal/prediction"
@@ -42,6 +46,22 @@ func main() {
 	core := engine.New(workers, alloc, conf, predict, sim, learn)
 	core.Start()
 
+	// Start Kafka consumer in background goroutine
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	kafkaBrokers := os.Getenv("KAFKA_BROKERS")
+	if kafkaBrokers == "" {
+		logger.Fatal("FATAL: KAFKA_BROKERS not set. Kafka is strictly required for execution. Exiting.")
+	}
+
+	consumer := kafkaConsumer.NewConsumer(core, logger)
+	go func() {
+		logger.Info("Starting Kafka consumer goroutine")
+		consumer.Start(ctx)
+	}()
+	logger.Info("Kafka consumer goroutine launched", zap.String("brokers", kafkaBrokers))
+
 	h := &handlers.Handler{Engine: core}
 
 	r := gin.New()
@@ -53,6 +73,16 @@ func main() {
 	if port == "" {
 		port = "9090"
 	}
+
+	// Graceful shutdown
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		<-sigCh
+		logger.Info("Shutdown signal received")
+		cancel()
+		core.Stop()
+	}()
 
 	logger.Info("schedulord-go-engine starting", zap.String("port", port), zap.Int("workers", workers))
 	if err := r.Run(":" + port); err != nil {

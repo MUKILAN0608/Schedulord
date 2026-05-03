@@ -20,7 +20,7 @@ const createSchema = Joi.object({
   priority: Joi.number().integer().min(0).max(100).default(0),
 });
 
-router.post("/", authenticateJWT, async (req, res, next) => {
+router.post("/", authenticateJWT, requireRole("user"), async (req, res, next) => {
   try {
     req.body = await createSchema.validateAsync(req.body, { abortEarly: false });
     return createRequest(req, res, next);

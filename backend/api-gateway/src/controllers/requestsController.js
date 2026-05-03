@@ -9,7 +9,23 @@ const { kafkaEventsPublished } = require("../metrics/metrics");
 
 async function listRequests(req, res, next) {
   try {
-    const filter = req.user.role === "admin" ? {} : { userId: req.user.sub };
+    let filter = {};
+    if (req.user.role === 'admin') {
+      // Admin sees only pending requests that need attention, not all requests.
+      filter.status = 'pending';
+    } else {
+      // Client sees only their own requests.
+      filter.userId = req.user.sub;
+    }
+
+    // Optional query overrides for admin
+    if (req.user.role === 'admin' && req.query.userId) {
+      filter.userId = req.query.userId;
+    }
+    if (req.user.role === 'admin' && req.query.status) {
+      filter.status = req.query.status;
+    }
+
     const items = await Request.find(filter).sort({ createdAt: -1 }).lean();
     res.json({ items });
   } catch (err) {
@@ -48,7 +64,11 @@ async function createRequest(req, res, next) {
       });
     }
 
-    // Publish to Kafka for event-driven processing
+    // Query available resources to enrich the Kafka message
+    // so the Go engine Kafka consumer has everything it needs
+    const available = await Resource.find({ type: resourceType, isAvailable: true }).lean();
+
+    // Publish enriched event to Kafka for event-driven processing
     const published = await publishEvent(
       TOPICS.ALLOCATION_REQUESTS,
       String(request._id),
@@ -59,6 +79,12 @@ async function createRequest(req, res, next) {
         resourceType,
         quantity,
         priority,
+        resources: available.map((r) => ({
+          id: String(r._id),
+          type: r.type,
+          capacity: r.capacity,
+          isAvailable: r.isAvailable,
+        })),
         timestamp: new Date().toISOString(),
       }
     );
@@ -74,13 +100,13 @@ async function createRequest(req, res, next) {
       type: "allocation",
       severity: "info",
       title: "New Allocation Request",
-      message: `Request for ${quantity}x ${resourceType} (priority: ${priority})`,
+      message: "Request for " + quantity + "x " + resourceType + " (priority: " + priority + ")",
       requestId: request._id,
       userId: req.user.sub,
       metadata: { resourceType, quantity, priority, kafkaPublished: published },
     });
 
-    // Event-driven: request processor claims pending requests and allocates asynchronously.
+    // Event-driven: Go Kafka consumer processes, or requestProcessor polls as fallback.
     res.status(202).json(request);
   } catch (err) {
     next(err);
@@ -91,13 +117,11 @@ async function getRequest(req, res, next) {
   try {
     const doc = await Request.findById(req.params.id).lean();
     if (!doc) throw createError(404, "Request not found");
-    if (req.user.role !== "admin" && String(doc.userId) !== String(req.user.sub)) {
+    if (String(doc.userId) !== String(req.user.sub) && req.user.role !== 'admin') {
       throw createError(403, "Forbidden");
     }
 
-    // Also fetch allocation if exists
     const allocation = await Allocation.findOne({ requestId: doc._id }).lean();
-
     res.json({ ...doc, allocation: allocation || null });
   } catch (err) {
     next(err);
@@ -108,7 +132,7 @@ async function cancelRequest(req, res, next) {
   try {
     const doc = await Request.findById(req.params.id);
     if (!doc) throw createError(404, "Request not found");
-    if (req.user.role !== "admin" && String(doc.userId) !== String(req.user.sub)) {
+    if (String(doc.userId) !== String(req.user.sub) && req.user.role !== 'admin') {
       throw createError(403, "Forbidden");
     }
     doc.status = "cancelled";
@@ -128,7 +152,7 @@ async function cancelRequest(req, res, next) {
 
 async function runAllocationNow(req, res, next) {
   try {
-    // Admin-only endpoint that calls Go synchronously.
+    // Admin-only endpoint that calls Go synchronously via HTTP.
     const doc = await Request.findById(req.params.id).lean();
     if (!doc) throw createError(404, "Request not found");
 
@@ -148,7 +172,7 @@ async function runAllocationNow(req, res, next) {
       })),
     });
 
-    if (decision?.allocation?.resourceId) {
+    if (decision && decision.allocation && decision.allocation.resourceId) {
       await Allocation.create({
         requestId: doc._id,
         resourceId: decision.allocation.resourceId,
@@ -165,7 +189,7 @@ async function runAllocationNow(req, res, next) {
         type: "allocation",
         severity: "info",
         title: "Resource Allocated",
-        message: `Request ${doc._id} allocated to resource ${decision.allocation.resourceId} (score: ${decision.allocation.score?.toFixed(2)})`,
+        message: "Request " + doc._id + " allocated to resource " + decision.allocation.resourceId + " (score: " + (decision.allocation.score || 0).toFixed(2) + ")",
         requestId: doc._id,
         resourceId: decision.allocation.resourceId,
         metadata: decision.allocation,
@@ -174,15 +198,16 @@ async function runAllocationNow(req, res, next) {
       await Request.updateOne({
         _id: doc._id,
       }, {
-        $set: { status: "rejected", reason: decision?.allocation?.reason || "No allocation found" },
+        $set: { status: "pending", reason: "waiting for available resources" },
       });
 
       await SystemEvent.create({
         type: "allocation",
         severity: "warning",
-        title: "Allocation Rejected",
-        message: decision?.allocation?.reason || "No allocation found",
+        title: "Allocation Delayed",
+        message: "Insufficient capacity. Request queued and waiting for resources.",
         requestId: doc._id,
+        userId: doc.userId,
       });
     }
 

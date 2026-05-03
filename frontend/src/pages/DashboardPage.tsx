@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { analyticsApi, requestsApi } from '../api'
+import { analyticsApi } from '../api'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import { connectSocket, getSocket } from '../socket'
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid, BarChart, Bar, LineChart, Line } from 'recharts'
 
-const COLORS = ['#6c5ce7', '#00e676', '#ff5252', '#ffab40', '#00e5ff']
+const VIBRANT_COLORS = ['var(--chart-cyan)', 'var(--chart-magenta)', 'var(--chart-green)', 'var(--chart-gold)', 'var(--chart-purple)']
 
 interface DashboardStats {
   resources: { total: number; available: number; utilization: string }
@@ -19,8 +19,6 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [requestForm, setRequestForm] = useState({ resourceType: '', quantity: '1', priority: '50' })
-  const [submitting, setSubmitting] = useState(false)
 
   const user = useSelector((s: RootState) => s.auth.user)
   const isClient = user?.role !== 'admin'
@@ -29,12 +27,11 @@ export default function DashboardPage() {
     loadData()
     const interval = setInterval(loadData, 10000)
 
-    // WebSocket for live events
     const token = localStorage.getItem('schedulord_token')
     if (token) {
       const sock = connectSocket(token)
       sock.on('request.status', (data: any) => {
-        setEvents(prev => [{ ...data, createdAt: new Date().toISOString(), type: 'allocation', title: `Request ${data.status}` }, ...prev].slice(0, 50))
+        setEvents(prev => [{ ...data, createdAt: new Date().toISOString(), type: 'allocation', title: `REQ ${data.status.toUpperCase()}` }, ...prev].slice(0, 50))
       })
     }
 
@@ -48,7 +45,7 @@ export default function DashboardPage() {
     try {
       const [dashData, eventsData] = await Promise.all([
         analyticsApi.dashboard(),
-        analyticsApi.events(20),
+        analyticsApi.events(50),
       ])
       setStats(dashData)
       setEvents(eventsData.events || [])
@@ -59,207 +56,230 @@ export default function DashboardPage() {
     }
   }
 
-  const handleCreateRequest = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSubmitting(true)
-    try {
-      await requestsApi.create({
-        resourceType: requestForm.resourceType,
-        quantity: Number(requestForm.quantity),
-        priority: Number(requestForm.priority),
-      })
-      setRequestForm({ resourceType: '', quantity: '1', priority: '50' })
-      alert('Request Submitted Successfully to Sovereign Engine')
-      loadData()
-    } catch (err: any) {
-      alert(err.message || 'Failed to submit request')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
+  // Data processing for 6 graphs
   const pieData = stats ? [
-    { name: 'Allocated', value: stats.requests.allocated },
-    { name: 'Pending', value: stats.requests.pending },
+    { name: 'Active', value: stats.requests.allocated },
+    { name: 'Queued', value: stats.requests.pending },
     { name: 'Rejected', value: stats.requests.rejected },
   ].filter(d => d.value > 0) : []
 
   const areaData = events.slice(0, 20).reverse().map((e, i) => ({
-    idx: i,
-    time: new Date(e.createdAt).toLocaleTimeString(),
-    events: 1,
+    time: new Date(e.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    volume: e.resources?.cpus || 1, // Actual requested CPUs
+  }))
+
+  const barData = stats ? [
+    { name: 'Allocated', value: stats.requests.allocated },
+    { name: 'Pending', value: stats.requests.pending },
+  ] : []
+
+  const priorityData = events.slice(0, 10).map((e, i) => ({
+    time: new Date(e.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    priority: e.priority || 50,
+  }))
+
+  const utilizationData = [
+    { name: 'Used', value: parseFloat(stats?.resources.utilization || '0') },
+    { name: 'Free', value: 100 - parseFloat(stats?.resources.utilization || '0') }
+  ]
+
+  const historyData = events.slice(0, 15).reverse().map((e, i) => ({
+    id: e.id ? e.id.substring(0, 6) : `evt-${i}`,
+    val: e.resources?.memory || 512, // Actual requested Memory
   }))
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-[var(--color-accent-secondary)] font-mono animate-pulse">Loading Command Center...</div>
+      <div className="flex items-center justify-center min-h-[80vh]">
+        <div className="relative flex items-center justify-center">
+          <div className="absolute w-24 h-24 border-t-2 border-b-2 border-[#D4AF37] rounded-full animate-spin"></div>
+          <span className="text-[#D4AF37] font-mono text-xs tracking-widest animate-pulse">INITIATING</span>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Command Center</h1>
-          <p className="text-sm text-[#636380] mt-1">Real-time system overview and event monitoring</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="pulse-dot bg-[var(--color-neon-green)]" />
-          <span className="text-xs text-[var(--color-neon-green)] font-mono">SYSTEM ONLINE</span>
-        </div>
+    <div className="space-y-8 pb-10 min-h-screen">
+      {/* Enterprise Title */}
+      <div className="flex flex-col items-center justify-center text-center border-b border-[var(--border-color)] pb-6 mb-8">
+        <h1 className="text-3xl md:text-4xl font-black text-[var(--text-primary)] uppercase tracking-[0.15em] drop-shadow-sm">
+          {isClient ? 'Client Operations' : 'Global Telemetry'}
+        </h1>
+        <p className="text-[10px] md:text-[12px] text-[var(--text-secondary)] uppercase tracking-[0.25em] font-bold mt-3">
+          {isClient ? 'Resource Monitoring & Visualization' : 'System-Wide Compute Orchestration'}
+        </p>
+        <div className="w-16 h-[2px] bg-[var(--text-primary)] opacity-20 mt-4 rounded-full"></div>
       </div>
-
-      {isClient && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6 border border-gold/20 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gold to-transparent"></div>
-          <h3 className="text-lg font-bold text-white mb-2 uppercase tracking-widest text-gold-gradient">Request Allocation</h3>
-          <p className="text-xs text-[#636380] mb-6">Submit a direct compute request to the Engine.</p>
-          <form onSubmit={handleCreateRequest} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div>
-              <label className="block text-[10px] text-gray-500 uppercase font-bold mb-2 tracking-widest">Resource Matrix</label>
-              <input className="w-full bg-white/5 border border-white/5 px-4 py-3 text-sm text-white focus:outline-none focus:border-gold/30 font-light" placeholder="e.g. GPU, Node" value={requestForm.resourceType} onChange={e => setRequestForm({...requestForm, resourceType: e.target.value})} required />
-            </div>
-            <div>
-              <label className="block text-[10px] text-gray-500 uppercase font-bold mb-2 tracking-widest">Cycle Quantity</label>
-              <input className="w-full bg-white/5 border border-white/5 px-4 py-3 text-sm text-white focus:outline-none focus:border-gold/30 font-light" type="number" min="1" value={requestForm.quantity} onChange={e => setRequestForm({...requestForm, quantity: e.target.value})} required />
-            </div>
-            <div>
-              <label className="block text-[10px] text-gray-500 uppercase font-bold mb-2 tracking-widest">Priority Weight ({requestForm.priority})</label>
-              <input className="w-full mt-2" type="range" min="0" max="100" value={requestForm.priority} onChange={e => setRequestForm({...requestForm, priority: e.target.value})} />
-            </div>
-            <button type="submit" disabled={submitting} className="w-full py-3 gold-button text-xs disabled:opacity-50 h-[46px]">
-              {submitting ? 'Authenticating...' : 'Engage Engine'}
-            </button>
-          </form>
-        </motion.div>
-      )}
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6 max-w-6xl mx-auto">
         {[
-          { label: 'Total Resources', value: stats?.resources.total || 0, sub: `${stats?.resources.available || 0} available`, color: 'var(--color-accent-primary)' },
-          { label: 'Utilization', value: `${stats?.resources.utilization || 0}%`, sub: 'resource usage', color: 'var(--color-neon-cyan)' },
-          { label: 'Active Requests', value: stats?.requests.pending || 0, sub: `${stats?.requests.total || 0} total`, color: 'var(--color-neon-amber)' },
-          { label: 'Allocations', value: stats?.allocations.total || 0, sub: `${stats?.requests.allocated || 0} completed`, color: 'var(--color-neon-green)' },
-        ].map((card, i) => (
+          { label: isClient ? 'Provisioned Compute' : 'Global Fleet Capacity', value: stats?.resources.total || 0, sub: `${stats?.resources.available || 0} nodes idle`, color: 'var(--chart-cyan)' },
+          { label: 'Cluster Saturation', value: `${stats?.resources.utilization || 0}%`, sub: 'real-time load', color: 'var(--chart-magenta)' },
+          { label: isClient ? 'Workload Backlog' : 'Global Queue Depth', value: stats?.requests.pending || 0, sub: 'pending workloads', color: 'var(--chart-green)' },
+          { label: 'Completed Allocations', value: stats?.allocations.total || 0, sub: 'historical tasks', color: 'var(--chart-gold)' },
+          { label: 'System Volatility', value: events.length || 0, sub: 'recent telemetry events', color: 'var(--chart-purple)' },
+        ].map((metric, i) => (
           <motion.div
-            key={card.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className="glass-card-sm stat-card p-5"
+            key={metric.label}
+            whileHover={{ scale: 1.05, y: -5 }}
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ delay: 0.1 * i, type: "spring", stiffness: 200, damping: 15 }}
+            className="relative py-8 sm:py-0 sm:aspect-square overflow-hidden rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] p-4 flex flex-col items-center justify-center text-center group cursor-default"
           >
-            <p className="text-xs text-[#636380] uppercase tracking-wider font-medium mb-2">{card.label}</p>
-            <p className="text-3xl font-bold" style={{ color: card.color }}>{card.value}</p>
-            <p className="text-xs text-[#8888a0] mt-1">{card.sub}</p>
+            <p className="text-[10px] text-[var(--text-secondary)] font-black uppercase tracking-[0.15em] mb-2 group-hover:text-[var(--text-primary)] transition-colors z-10 leading-tight">
+              {metric.label}
+            </p>
+            
+            <p className="text-4xl sm:text-4xl font-black tracking-tighter my-2 z-10 transition-transform group-hover:scale-110 duration-300" style={{ color: metric.color }}>
+              {metric.value}
+            </p>
+            
+            <p className="text-[9px] font-bold uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity z-10 mt-1" style={{ color: metric.color }}>
+              {metric.sub}
+            </p>
+            
+            {/* Solid Bottom Accent Bar */}
+            <div className="absolute bottom-0 left-0 w-full h-[4px] opacity-40 group-hover:opacity-100 transition-opacity duration-300" style={{ backgroundColor: metric.color }} />
           </motion.div>
         ))}
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Event Activity */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="glass-card p-5 lg:col-span-2"
-        >
-          <h3 className="text-sm font-semibold text-white mb-4">Event Activity</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={areaData}>
-              <defs>
-                <linearGradient id="colorEvents" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6c5ce7" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#6c5ce7" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="time" tick={{ fill: '#636380', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#636380', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(108,92,231,0.3)', borderRadius: 8, color: '#e2e8f0', fontSize: 12 }} />
-              <Area type="monotone" dataKey="events" stroke="#6c5ce7" fillOpacity={1} fill="url(#colorEvents)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
+      {/* 6 Graphs Below (2 rows of 3, or responsive grid) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+        {/* Graph 1: Compute Demand */}
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] p-6">
+          <div className="mb-6 flex flex-col items-center justify-center text-center">
+            <h3 className="text-[11px] font-black text-[var(--text-primary)] uppercase tracking-[0.2em] mb-1">Compute Demand</h3>
+            <p className="text-[9px] text-[var(--text-secondary)] uppercase tracking-widest font-bold opacity-70">CPU Allocations Over Time</p>
+            <div className="w-6 h-[2px] mt-3 rounded-full bg-[var(--chart-cyan)] opacity-60"></div>
+          </div>
+          <div className="h-[180px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={areaData}>
+                <defs>
+                  <linearGradient id="cyanGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--chart-cyan)" stopOpacity={0.6}/>
+                    <stop offset="100%" stopColor="var(--chart-cyan)" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--chart-cyan)', borderRadius: '4px', color: 'var(--text-primary)' }} />
+                <Area type="monotone" dataKey="volume" stroke="var(--chart-cyan)" strokeWidth={3} fill="url(#cyanGradient)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </motion.div>
 
-        {/* Request Distribution */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="glass-card p-5"
-        >
-          <h3 className="text-sm font-semibold text-white mb-4">Request Distribution</h3>
-          {pieData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={200}>
+        {/* Graph 2: Compute State */}
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }} className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] p-6">
+          <div className="mb-6 flex flex-col items-center justify-center text-center">
+            <h3 className="text-[11px] font-black text-[var(--text-primary)] uppercase tracking-[0.2em] mb-1">Compute State</h3>
+            <p className="text-[9px] text-[var(--text-secondary)] uppercase tracking-widest font-bold opacity-70">Distribution Metrics</p>
+            <div className="w-6 h-[2px] mt-3 rounded-full bg-[var(--chart-magenta)] opacity-60"></div>
+          </div>
+          <div className="h-[180px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={5} dataKey="value">
-                  {pieData.map((_entry, i) => (
-                    <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />
-                  ))}
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={5} dataKey="value" stroke="none">
+                  {pieData.map((_entry, i) => <Cell key={`cell-${i}`} fill={VIBRANT_COLORS[i % VIBRANT_COLORS.length]} />)}
                 </Pie>
-                <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(108,92,231,0.3)', borderRadius: 8, color: '#e2e8f0', fontSize: 12 }} />
+                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--chart-magenta)', borderRadius: '4px', color: 'var(--text-primary)' }} />
               </PieChart>
             </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-[200px] text-[#636380] text-sm">No request data</div>
-          )}
-          <div className="flex flex-wrap gap-3 mt-2">
-            {pieData.map((d, i) => (
-              <div key={d.name} className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLORS[i] }} />
-                <span className="text-xs text-[#8888a0]">{d.name}: {d.value}</span>
-              </div>
-            ))}
           </div>
         </motion.div>
-      </div>
 
-      {/* Live Event Feed */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="glass-card p-5"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-white">Live Activity Stream</h3>
-          <div className="flex items-center gap-2">
-            <div className="pulse-dot bg-[var(--color-neon-green)]" />
-            <span className="text-xs text-[#636380] font-mono">LIVE</span>
+        {/* Graph 3: Allocation Comparison */}
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }} className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] p-6">
+          <div className="mb-6 flex flex-col items-center justify-center text-center">
+            <h3 className="text-[11px] font-black text-[var(--text-primary)] uppercase tracking-[0.2em] mb-1">Allocation Status</h3>
+            <p className="text-[9px] text-[var(--text-secondary)] uppercase tracking-widest font-bold opacity-70">Pending vs Active Load</p>
+            <div className="w-6 h-[2px] mt-3 rounded-full bg-[var(--chart-green)] opacity-60"></div>
           </div>
-        </div>
-        <div className="space-y-2 max-h-[300px] overflow-y-auto">
-          {events.length === 0 ? (
-            <p className="text-sm text-[#636380] text-center py-8">No events yet. Submit an allocation request to see activity.</p>
-          ) : (
-            events.map((ev, i) => (
-              <motion.div
-                key={`${ev._id || i}-${ev.createdAt}`}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.02 }}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg bg-[rgba(26,26,46,0.5)] border border-[rgba(108,92,231,0.08)]"
-              >
-                <div className={`w-2 h-2 rounded-full ${
-                  ev.severity === 'error' || ev.severity === 'critical' ? 'bg-[var(--color-neon-red)]' :
-                  ev.severity === 'warning' ? 'bg-[var(--color-neon-amber)]' :
-                  'bg-[var(--color-neon-green)]'
-                }`} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white truncate">{ev.title || ev.type}</p>
-                  <p className="text-xs text-[#636380] truncate">{ev.message || JSON.stringify(ev)}</p>
-                </div>
-                <span className="text-xs text-[#4a4a60] font-mono whitespace-nowrap">
-                  {new Date(ev.createdAt).toLocaleTimeString()}
-                </span>
-              </motion.div>
-            ))
-          )}
-        </div>
-      </motion.div>
+          <div className="h-[180px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={barData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--chart-green)', borderRadius: '4px', color: 'var(--text-primary)' }} cursor={{ fill: 'var(--border-color)' }} />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                  {barData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={index === 0 ? 'var(--chart-green)' : 'var(--chart-magenta)'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+
+        {/* Graph 4: Priority Trend */}
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.5 }} className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] p-6">
+          <div className="mb-6 flex flex-col items-center justify-center text-center">
+            <h3 className="text-[11px] font-black text-[var(--text-primary)] uppercase tracking-[0.2em] mb-1">Priority Index</h3>
+            <p className="text-[9px] text-[var(--text-secondary)] uppercase tracking-widest font-bold opacity-70">Recent Request Tiering</p>
+            <div className="w-6 h-[2px] mt-3 rounded-full bg-[var(--chart-gold)] opacity-60"></div>
+          </div>
+          <div className="h-[180px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={priorityData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--chart-gold)', borderRadius: '4px', color: 'var(--text-primary)' }} />
+                <Line type="stepAfter" dataKey="priority" stroke="var(--chart-gold)" strokeWidth={3} dot={{ fill: 'var(--chart-gold)', strokeWidth: 0, r: 4 }} activeDot={{ r: 6, fill: 'var(--text-primary)' }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+
+        {/* Graph 5: Network Saturation Donut */}
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.6 }} className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] p-6 relative">
+          <div className="mb-6 flex flex-col items-center justify-center text-center">
+            <h3 className="text-[11px] font-black text-[var(--text-primary)] uppercase tracking-[0.2em] mb-1">Saturation Level</h3>
+            <p className="text-[9px] text-[var(--text-secondary)] uppercase tracking-widest font-bold opacity-70">Global System Load</p>
+            <div className="w-6 h-[2px] mt-3 rounded-full bg-[var(--chart-purple)] opacity-60"></div>
+          </div>
+          <div className="h-[180px] w-full relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={utilizationData} cx="50%" cy="50%" innerRadius={50} outerRadius={60} startAngle={180} endAngle={0} dataKey="value" stroke="none">
+                  <Cell fill="var(--chart-purple)" />
+                  <Cell fill="var(--border-color)" />
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center mt-8 pointer-events-none">
+              <span className="text-3xl font-black" style={{ color: 'var(--chart-purple)' }}>{stats?.resources.utilization || 0}%</span>
+              <span className="text-[8px] text-[var(--text-primary)] uppercase tracking-widest font-bold">LOAD</span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Graph 6: Memory Volatility */}
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.7 }} className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] p-6">
+          <div className="mb-6 flex flex-col items-center justify-center text-center">
+            <h3 className="text-[11px] font-black text-[var(--text-primary)] uppercase tracking-[0.2em] mb-1">Memory Volatility</h3>
+            <p className="text-[9px] text-[var(--text-secondary)] uppercase tracking-widest font-bold opacity-70">Requested Memory (MB)</p>
+            <div className="w-6 h-[2px] mt-3 rounded-full bg-[var(--chart-magenta)] opacity-60"></div>
+          </div>
+          <div className="h-[180px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={historyData}>
+                <defs>
+                  <linearGradient id="magentaGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--chart-magenta)" stopOpacity={0.6}/>
+                    <stop offset="100%" stopColor="var(--chart-magenta)" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-primary)', borderColor: 'var(--chart-magenta)', borderRadius: '4px', color: 'var(--text-primary)' }} />
+                <Area type="monotone" dataKey="val" stroke="var(--chart-magenta)" strokeWidth={2} fill="url(#magentaGradient)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+
+      </div>
     </div>
   )
 }

@@ -20,6 +20,7 @@ const { initSockets } = require("./sockets");
 const { errorHandler } = require("./middleware/errorHandler");
 const { ensureBootstrapData } = require("./utils/seedData");
 const { startRequestProcessor } = require("./services/requestProcessor");
+const { startKafkaResultConsumer } = require("./services/kafkaResultConsumer");
 
 async function main() {
   // Connect infrastructure
@@ -31,7 +32,7 @@ async function main() {
   const app = express();
   const server = http.createServer(app);
   initSockets(server);
-  startRequestProcessor();
+  startKafkaResultConsumer();
 
   app.disable("x-powered-by");
   app.use(helmet());

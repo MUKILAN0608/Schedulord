@@ -24,8 +24,8 @@ async function connectKafkaProducer() {
     await producer.connect();
     logger.info("Kafka producer connected");
   } catch (err) {
-    logger.warn({ err }, "Kafka producer connection failed — falling back to direct HTTP processing");
-    producer = null;
+    logger.error({ err }, "FATAL: Kafka producer connection failed. Kafka is strictly required.");
+    process.exit(1);
   }
 }
 

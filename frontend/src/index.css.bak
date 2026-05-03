@@ -1,0 +1,228 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=Fraunces:ital,opsz,wght@1,9..144,900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-gold: #D4AF37;
+  --color-obsidian: #050505;
+  --font-main: 'Inter', sans-serif;
+  --font-heading: 'Fraunces', serif;
+}
+
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f4f4f5;
+  --text-primary: #000000;
+  --text-secondary: #52525b;
+  --border-color: rgba(0, 0, 0, 0.1);
+  --chart-cyan: #008eb3;
+  --chart-magenta: #cc0066;
+  --chart-green: #009933;
+  --chart-gold: #b8860b;
+  --chart-purple: #6b00b3;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-main);
+}
+
+[data-theme="dark"] {
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --text-primary: #ffffff;
+  --text-secondary: #8888a0;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --chart-cyan: #00E5FF;
+  --chart-magenta: #FF007F;
+  --chart-green: #00FF66;
+  --chart-gold: #FFD700;
+  --chart-purple: #9D00FF;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+  -webkit-font-smoothing: antialiased;
+}
+
+.beautiful-serif-subtitle {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #ffffff;
+  opacity: 1;
+  display: inline-block;
+  text-shadow: 0 0 20px rgba(255,255,255,0.4), 0 4px 20px rgba(0,0,0,0.8);
+}
+
+.performance-protocol-text {
+  text-shadow: 0 2px 15px rgba(0,0,0,0.9);
+}
+
+/* SOVEREIGN GLASS ENGINE */
+
+.title-glow-gold {
+  background: linear-gradient(
+    to bottom,
+    #FFF7CC 0%,
+    #FFD700 25%,
+    #D4AF37 50%,
+    #B8860B 75%,
+    #D4AF37 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: 
+    drop-shadow(0 10px 10px rgba(0,0,0,0.4))
+    drop-shadow(0 2px 2px rgba(255,255,255,0.2));
+}
+
+/* RED vs GOLD MESSENGER UI */
+.chat-messenger {
+  @apply max-w-4xl mx-auto flex flex-col gap-10 py-12 relative;
+}
+
+.messenger-bubble {
+  @apply p-6 rounded-[28px] max-w-[75%] relative transition-all duration-500 shadow-xl border;
+}
+
+.bubble-red-alert {
+  @apply bg-red-500/5 border-red-500/20 text-red-100/60 self-start rounded-bl-none;
+}
+
+.bubble-gold-success {
+  @apply bg-gold/10 border-gold/40 text-white self-end rounded-br-none shadow-[0_0_40px_rgba(212,175,55,0.1)];
+}
+
+.messenger-avatar {
+  @apply w-12 h-12 rounded-full border-2 flex items-center justify-center font-black shadow-lg;
+}
+
+.avatar-red { @apply bg-red-500/10 border-red-500/30 text-red-500/60; }
+.avatar-gold { @apply bg-gold/20 border-gold/50 text-gold shadow-[0_0_15px_rgba(212,175,55,0.2)]; }
+
+.feature-tag {
+  @apply text-[9px] font-black uppercase tracking-[0.2em] mb-2 block;
+}
+
+.tag-red { @apply text-red-500/40; }
+.tag-gold { @apply text-gold; }
+
+/* EXECUTIVE GRADIENT & GATEWAY UI */
+.bg-executive-horizon {
+  background: linear-gradient(135deg, #0F172A 0%, #020617 100%);
+}
+
+.nav-signin-btn {
+  @apply text-[10px] font-black uppercase tracking-[0.2em] px-8 py-3 rounded-full transition-all duration-500 backdrop-blur-md border shadow-xl flex items-center justify-center;
+  background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  border-color: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.8);
+}
+
+.nav-signin-btn:hover {
+  background: linear-gradient(135deg, rgba(212,175,55,0.1), rgba(212,175,55,0.02));
+  border-color: rgba(212,175,55,0.4);
+  color: #D4AF37;
+  box-shadow: 0 0 30px rgba(212,175,55,0.15);
+  transform: translateY(-1px);
+}
+
+.gateway-card {
+  @apply relative p-12 rounded-[40px] border border-white/5 bg-white/[0.01] overflow-hidden transition-all duration-700 hover:border-gold/30 hover:bg-white/[0.03];
+}
+
+.gateway-label {
+  @apply text-[10px] font-black uppercase tracking-[0.4em] mb-4 block text-gold/60;
+}
+
+.gateway-title {
+  @apply text-3xl font-black text-white mb-6 tracking-tight;
+}
+
+.gateway-btn {
+  @apply mt-8 px-10 py-4 rounded-full bg-gold text-black font-black text-xs uppercase tracking-[0.2em] inline-block transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(212,175,55,0.4)];
+}
+
+.portal-pattern {
+  @apply absolute inset-0 opacity-[0.02] pointer-events-none group-hover:opacity-[0.05] transition-opacity;
+  background-image: radial-gradient(circle, #D4AF37 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+/* Localized Satin Grain (No External Dependencies) */
+/* SOVEREIGN IMPACT MATRIX (NON-BORING) */
+.impact-card {
+  @apply relative p-8 rounded-3xl border border-white/5 bg-white/[0.01] overflow-hidden transition-all duration-500 hover:border-gold/20 hover:bg-white/[0.02] hover:-translate-y-2;
+}
+
+.impact-card::before {
+  content: '';
+  @apply absolute inset-0 bg-gradient-to-br from-gold/5 to-transparent opacity-0 transition-opacity duration-500;
+}
+
+.impact-card:hover::before {
+  @apply opacity-100;
+}
+
+.entropy-badge {
+  @apply text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-2 block;
+}
+
+.sovereign-badge {
+  @apply text-[10px] font-black uppercase tracking-[0.2em] text-gold mb-2 block;
+}
+
+.impact-divider {
+  @apply w-full h-[1px] bg-white/5 my-4 relative;
+}
+
+.impact-divider::after {
+  content: 'VS';
+  @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#050505] px-2 text-[8px] font-black text-white/10;
+}
+
+@keyframes titleGlimmer {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+.btn-sovereign-primary {
+  background: #D4AF37;
+  color: #000000;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 1.25rem 3.5rem;
+  border-radius: 8px;
+  box-shadow: 0 0 30px rgba(212, 175, 55, 0.35);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-sovereign-primary:hover {
+  background: #FFD700;
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 0 50px rgba(212, 175, 55, 0.5);
+}
+
+.btn-sovereign-secondary {
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 1.25rem 3.5rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.btn-sovereign-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+}
+
+.vignette-overlay {
+  background: radial-gradient(circle, transparent 20%, rgba(0,0,0,0.4) 100%);
+}

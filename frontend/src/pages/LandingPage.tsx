@@ -161,8 +161,12 @@ const LandingPage: React.FC = () => {
                     <p className="text-[15px] font-black leading-relaxed tracking-tight">{item.s}</p>
                     <div className="mt-3 flex items-center gap-1.5">
                        <div className="flex -space-x-1">
-                         <div className="w-3 h-3 bg-gold rounded-full flex items-center justify-center text-[6px] text-black font-bold">✓</div>
-                         <div className="w-3 h-3 bg-gold rounded-full flex items-center justify-center text-[6px] text-black font-bold">✓</div>
+                         <div className="w-3 h-3 bg-gold rounded-full flex items-center justify-center text-black">
+                           <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                         </div>
+                         <div className="w-3 h-3 bg-gold rounded-full flex items-center justify-center text-black">
+                           <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                         </div>
                        </div>
                        <span className="text-[9px] font-black text-gold uppercase tracking-widest opacity-60">Verified Resolution</span>
                     </div>

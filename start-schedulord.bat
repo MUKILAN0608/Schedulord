@@ -6,7 +6,7 @@ echo =======================================================
 echo.
 
 echo [1/3] Igniting Go Engine...
-start "Sovereign Go Engine" cmd /c "cd backend\go-engine && go run ./cmd/main.go"
+start "Sovereign Go Engine" cmd /c "set KAFKA_BROKERS=localhost:9092 && set GO_ENGINE_PORT=9090 && cd backend\go-engine && go run ./cmd/main.go"
 
 echo [2/3] Igniting API Gateway (Node.js)...
 start "Schedulord API Gateway" cmd /c "cd backend\api-gateway && npm run dev"
