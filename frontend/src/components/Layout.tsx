@@ -7,16 +7,18 @@ import { disconnectSocket } from '../socket'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const adminNavItems = [
-  { to: '/panel/dashboard', label: 'Command Center', icon: '' },
-  { to: '/panel/requests', label: 'All Requests', icon: '' },
-  { to: '/panel/resources', label: 'Global Resources', icon: '' },
-  { to: '/panel/decisions', label: 'Decision Intel', icon: '' },
-  { to: '/panel/analytics', label: 'Analytics', icon: '' },
+  { to: '/panel/dashboard', label: 'Command Center', icon: '◈' },
+  { to: '/panel/admin-request-decisions', label: 'Request Decisions', icon: '◉' },
+  { to: '/panel/admin-resources', label: 'Resource Control', icon: '▣' },
+  { to: '/panel/decisions', label: 'Decision Intel', icon: '◆' },
+  { to: '/panel/analytics', label: 'Analytics', icon: '◎' },
+  { to: '/panel/admin-manage', label: 'Admin Management', icon: '✦' },
 ]
 
 const clientNavItems = [
-  { to: '/panel/requests', label: 'My Requests', icon: '' },
-  { to: '/panel/dashboard', label: 'My Dashboard', icon: '' },
+  { to: '/panel/requests', label: 'My Requests', icon: '◉' },
+  { to: '/panel/dashboard', label: 'My Dashboard', icon: '◈' },
+  { to: '/panel/resources', label: 'Available Resources', icon: '▣' },
 ]
 
 export default function Layout() {
@@ -97,6 +99,7 @@ export default function Layout() {
                       }`
                     }
                   >
+                    <span className="text-[8px] opacity-50">{item.icon}</span>
                     {item.label}
                   </NavLink>
                 ))}
@@ -110,7 +113,7 @@ export default function Layout() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-[var(--text-primary)] truncate">{user?.name || 'Operative'}</p>
-                    <p className="text-[10px] text-[var(--text-secondary)] uppercase tracking-widest">{user?.email}</p>
+                    <p className="text-[10px] text-[var(--text-secondary)] uppercase tracking-widest">{user?.role || 'user'}</p>
                   </div>
                 </div>
                 <button onClick={handleLogout} className="w-full py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] hover:bg-[#D4AF37] hover:text-black hover:border-[#D4AF37] text-[var(--text-secondary)] text-[10px] uppercase tracking-widest font-bold rounded transition-colors">

@@ -55,8 +55,8 @@ async function apiFetch(path: string, options: FetchOptions = {}) {
 }
 
 // Flat Exports (For easier component imports)
-export const loginUser = (email: string, password: string) =>
-    apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }), skipAuth: true });
+export const loginUser = (email: string, password: string, intendedRole: 'admin' | 'user') =>
+    apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ email, password, intendedRole }), skipAuth: true });
 
 // Structured Exports
 export const authApi = {
@@ -70,15 +70,21 @@ export const resourcesApi = {
   get: (id: string) => apiFetch(`/resources/${id}`),
   create: (data: any) => apiFetch('/resources', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: any) => apiFetch(`/resources/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  delete: (id: string) => apiFetch(`/resources/${id}`),
+  delete: (id: string) => apiFetch(`/resources/${id}`, { method: 'DELETE' }),
 };
 
 export const requestsApi = {
   list: () => apiFetch('/requests'),
+  listWithParams: (status?: string) => apiFetch(`/requests${status ? `?status=${status}` : ''}`),
   get: (id: string) => apiFetch(`/requests/${id}`),
   create: (data: any) => apiFetch('/requests', { method: 'POST', body: JSON.stringify(data) }),
   cancel: (id: string) => apiFetch(`/requests/${id}/cancel`, { method: 'POST' }),
   allocateNow: (id: string) => apiFetch(`/requests/${id}/allocate`, { method: 'POST' }),
+  approve: (id: string) => apiFetch(`/requests/${id}/approve`, { method: 'POST' }),
+  reject: (id: string, reason?: string) =>
+    apiFetch(`/requests/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  myAdminDecisions: () => apiFetch('/requests/decisions/me'),
+  clearAll: () => apiFetch('/requests/clear', { method: 'POST' }),
 };
 
 export const analyticsApi = {
@@ -93,5 +99,10 @@ export const analyticsApi = {
 
 export const usersApi = {
   me: () => apiFetch('/users/me'),
+  admins: () => apiFetch('/users/admins'),
   list: () => apiFetch('/users'),
+  create: (email: string, password: string, role: 'admin' | 'user' = 'admin', name?: string) =>
+    apiFetch('/users', { method: 'POST', body: JSON.stringify({ email, password, role, name }) }),
+  update: (id: string, data: { role?: string; isActive?: boolean }) =>
+    apiFetch(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 };

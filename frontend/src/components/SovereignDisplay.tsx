@@ -1,7 +1,6 @@
 import React, { Suspense, Component, ReactNode, useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { useGLTF, Center, PerspectiveCamera, Bounds, OrbitControls } from '@react-three/drei';
-import * as THREE from 'three';
 
 // --- Sovereign Error Boundary (Ultra-Silent) ---
 class ThreeErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
@@ -48,19 +47,43 @@ const LoadingState = () => (
 );
 
 export const SovereignDisplay: React.FC = () => {
+  const modelUrl = '/dream_computer_setup.glb';
+  const [modelReady, setModelReady] = React.useState<boolean | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch(modelUrl, { method: 'HEAD' })
+      .then((res) => {
+        if (mounted) setModelReady(res.ok);
+      })
+      .catch(() => {
+        if (mounted) setModelReady(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <div className="w-full h-full min-h-[450px] md:min-h-[600px] relative overflow-hidden rounded-3xl bg-[#050505] border border-white/5 shadow-2xl cursor-grab active:cursor-grabbing">
+      {modelReady === false && (
+        <div className="absolute top-3 left-3 right-3 z-40 rounded border border-red-500/40 bg-red-950/60 px-3 py-2 text-[11px] text-red-200">
+          3D model not found at <span className="font-mono">{modelUrl}</span>. Add the file to <span className="font-mono">frontend/public</span>.
+        </div>
+      )}
       <ThreeErrorBoundary>
         <Suspense fallback={<LoadingState />}>
-          <Canvas 
-            dpr={[1, 1.5]} 
+        <Canvas 
+            dpr={[1, 1]} 
             shadows={false}
+            frameloop="demand"
             gl={{ 
-              antialias: true, 
+              antialias: false, 
               powerPreference: 'high-performance',
               alpha: false,
               stencil: false,
-              depth: true
+              depth: true,
+              failIfMajorPerformanceCaveat: false,
             }}
             className="rounded-3xl"
           >
@@ -68,20 +91,21 @@ export const SovereignDisplay: React.FC = () => {
             <PerspectiveCamera makeDefault fov={40} position={[0, 0, 18]} />
             <color attach="background" args={['#050505']} />
             
-            <ambientLight intensity={1.5} />
-            <directionalLight position={[10, 15, 10]} intensity={2.5} color="#ffffff" />
-            <pointLight position={[-10, 5, -10]} intensity={1.5} color="#D4AF37" />
+            <ambientLight intensity={1.2} />
+            <directionalLight position={[10, 15, 10]} intensity={2.0} color="#ffffff" />
+            <pointLight position={[-10, 5, -10]} intensity={1.2} color="#D4AF37" />
 
             <Bounds fit clip observe>
-               <PhysicalHardware url="/dream_computer_setup.glb" />
+               <PhysicalHardware url={modelUrl} />
             </Bounds>
 
             <OrbitControls 
                makeDefault 
                enableZoom={false} 
-               autoRotate={false}
+               autoRotate={true}
+               autoRotateSpeed={0.4}
                enableDamping={true}
-               dampingFactor={0.05}
+               dampingFactor={0.08}
             />
           </Canvas>
         </Suspense>

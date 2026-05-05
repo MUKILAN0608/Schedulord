@@ -33,6 +33,7 @@ async function main() {
   const server = http.createServer(app);
   initSockets(server);
   startKafkaResultConsumer();
+  startRequestProcessor();
 
   app.disable("x-powered-by");
   app.use(helmet());

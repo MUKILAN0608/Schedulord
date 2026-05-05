@@ -3,6 +3,7 @@ import { getStoredUser, setToken, setStoredUser } from '../api'
 
 interface User {
   id: string
+  name?: string
   email: string
   role: 'admin' | 'client' | 'user'
 }

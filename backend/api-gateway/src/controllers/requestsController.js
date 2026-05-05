@@ -3,6 +3,7 @@ const Request = require("../models/Request");
 const Allocation = require("../models/Allocation");
 const Resource = require("../models/Resource");
 const SystemEvent = require("../models/SystemEvent");
+const User = require("../models/User");
 const { requestAllocationDecision } = require("../services/goClient");
 const { publishEvent, TOPICS } = require("../config/kafka");
 const { kafkaEventsPublished } = require("../metrics/metrics");
@@ -11,32 +12,53 @@ async function listRequests(req, res, next) {
   try {
     let filter = {};
     if (req.user.role === 'admin') {
-      // Admin sees only pending requests that need attention, not all requests.
-      filter.status = 'pending';
+      // Admin sees only requests assigned to them.
+      filter.reviewerAdminId = req.user.sub;
+      if (req.query.status && req.query.status !== 'all') {
+        filter.status = req.query.status;
+      }
+      if (req.query.userId) {
+        filter.userId = req.query.userId;
+      }
     } else {
-      // Client sees only their own requests.
+      // Client sees only their own requests
       filter.userId = req.user.sub;
+      if (req.query.status && req.query.status !== 'all') {
+        filter.status = req.query.status;
+      }
     }
 
-    // Optional query overrides for admin
-    if (req.user.role === 'admin' && req.query.userId) {
-      filter.userId = req.query.userId;
+    const query = Request.find(filter).sort({ createdAt: -1 });
+    if (req.user.role === "admin") {
+      query.populate("userId", "name email role");
+      query.populate("reviewerAdminId", "name");
     }
-    if (req.user.role === 'admin' && req.query.status) {
-      filter.status = req.query.status;
-    }
-
-    const items = await Request.find(filter).sort({ createdAt: -1 }).lean();
+    const items = await query.lean();
     res.json({ items });
   } catch (err) {
     next(err);
   }
 }
 
+
 async function createRequest(req, res, next) {
   try {
-    const { resourceType, quantity, priority } = req.body;
+    const { reviewerAdminId, resourceType, preferredResourceId, quantity, priority } = req.body;
     const idempotencyKey = String(req.headers["idempotency-key"] || "").trim();
+
+    const reviewerAdmin = await User.findOne({ _id: reviewerAdminId, role: "admin", isActive: true }).lean();
+    if (!reviewerAdmin) throw createError(400, "Selected admin reviewer is not available");
+
+    if (preferredResourceId) {
+      const preferred = await Resource.findById(preferredResourceId).lean();
+      if (!preferred) throw createError(400, "Preferred resource not found");
+      if (!preferred.isAvailable || preferred.capacity < quantity) {
+        throw createError(400, "Preferred resource is not currently available");
+      }
+      if (preferred.type !== resourceType) {
+        throw createError(400, "Preferred resource type does not match request type");
+      }
+    }
 
     let request;
     if (idempotencyKey) {
@@ -48,7 +70,11 @@ async function createRequest(req, res, next) {
             resourceType,
             quantity,
             priority,
+            reviewerAdminId,
+            preferredResourceId: preferredResourceId || null,
             status: "pending",
+            adminApproved: false,
+            kafkaApprovedPublished: false,
             idempotencyKey,
           },
         },
@@ -60,53 +86,30 @@ async function createRequest(req, res, next) {
         resourceType,
         quantity,
         priority,
+        reviewerAdminId,
+        preferredResourceId: preferredResourceId || null,
         status: "pending",
+        adminApproved: false,
+        kafkaApprovedPublished: false,
       });
     }
 
-    // Query available resources to enrich the Kafka message
-    // so the Go engine Kafka consumer has everything it needs
-    const available = await Resource.find({ type: resourceType, isAvailable: true }).lean();
+    // Approval gate defaults: admin has not approved yet.
+    // Note: request remains in "pending" status until admin approval.
 
-    // Publish enriched event to Kafka for event-driven processing
-    const published = await publishEvent(
-      TOPICS.ALLOCATION_REQUESTS,
-      String(request._id),
-      {
-        type: "allocation.request.created",
-        requestId: String(request._id),
-        userId: String(req.user.sub),
-        resourceType,
-        quantity,
-        priority,
-        resources: available.map((r) => ({
-          id: String(r._id),
-          type: r.type,
-          capacity: r.capacity,
-          isAvailable: r.isAvailable,
-        })),
-        timestamp: new Date().toISOString(),
-      }
-    );
-
-    if (published) {
-      kafkaEventsPublished.inc({ topic: TOPICS.ALLOCATION_REQUESTS, status: "success" });
-    } else {
-      kafkaEventsPublished.inc({ topic: TOPICS.ALLOCATION_REQUESTS, status: "fallback" });
-    }
-
-    // Record system event
+    // Record system event only.
+    // Allocation Kafka publish occurs strictly on admin approval.
     await SystemEvent.create({
       type: "allocation",
       severity: "info",
       title: "New Allocation Request",
-      message: "Request for " + quantity + "x " + resourceType + " (priority: " + priority + ")",
+      message: "Request for " + quantity + "x " + resourceType + " awaiting admin approval",
       requestId: request._id,
       userId: req.user.sub,
-      metadata: { resourceType, quantity, priority, kafkaPublished: published },
+      metadata: { resourceType, quantity, priority, reviewerAdminId, kafkaPublished: false },
     });
 
-    // Event-driven: Go Kafka consumer processes, or requestProcessor polls as fallback.
+    request.reason = "awaiting admin approval";
     res.status(202).json(request);
   } catch (err) {
     next(err);
@@ -136,6 +139,8 @@ async function cancelRequest(req, res, next) {
       throw createError(403, "Forbidden");
     }
     doc.status = "cancelled";
+    doc.adminApproved = false;
+    doc.kafkaApprovedPublished = false;
     await doc.save();
 
     await publishEvent(TOPICS.SYSTEM_EVENTS, String(doc._id), {
@@ -217,4 +222,141 @@ async function runAllocationNow(req, res, next) {
   }
 }
 
-module.exports = { listRequests, createRequest, getRequest, cancelRequest, runAllocationNow };
+async function approveRequest(req, res, next) {
+  try {
+    const doc = await Request.findById(req.params.id);
+    if (!doc) throw createError(404, "Request not found");
+    if (doc.status === "cancelled") throw createError(409, "Request is cancelled");
+    if (doc.status === "allocated") throw createError(409, "Request already allocated");
+    if (doc.status === "rejected") throw createError(409, "Request already rejected");
+    if (String(doc.reviewerAdminId) !== String(req.user.sub)) {
+      throw createError(403, "Only the assigned admin can approve this request");
+    }
+
+    // Ensure the request is now eligible for processing/fallback.
+    doc.adminApproved = true;
+
+    const available = await Resource.find({ type: doc.resourceType, isAvailable: true }).lean();
+    const queueLength = await Request.countDocuments({
+      resourceType: doc.resourceType,
+      status: { $in: ["pending", "processing"] },
+    });
+
+    const published = await publishEvent(
+      TOPICS.ALLOCATION_REQUESTS,
+      String(doc._id),
+      {
+        type: "allocation.request.approved",
+        requestId: String(doc._id),
+        userId: String(doc.userId),
+        userRole: "user",
+        resourceType: doc.resourceType,
+        quantity: doc.quantity,
+        priority: doc.priority,
+        approved: true,
+        timestamp: new Date().toISOString(),
+        queueLength,
+        resources: available.map((r) => ({
+          id: String(r._id),
+          type: r.type,
+          capacity: r.capacity,
+          isAvailable: r.isAvailable,
+        })),
+      }
+    );
+
+    // Record whether Kafka publish succeeded. requestProcessor uses this to decide fallback.
+    doc.kafkaApprovedPublished = !!published;
+    doc.reason = "accepted by admin";
+    if (doc.status !== "pending") doc.status = "pending";
+    await doc.save();
+
+    if (published) {
+      kafkaEventsPublished.inc({ topic: TOPICS.ALLOCATION_REQUESTS, status: "success" });
+    } else {
+      kafkaEventsPublished.inc({ topic: TOPICS.ALLOCATION_REQUESTS, status: "fallback" });
+    }
+
+    await SystemEvent.create({
+      type: "allocation",
+      severity: "info",
+      title: "Request Approved",
+      message: "Admin approved request; published to Kafka for engine processing",
+      requestId: doc._id,
+      userId: doc.userId,
+      metadata: { kafkaPublished: published },
+    });
+
+    res.json({ ok: true, kafkaPublished: published });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function rejectRequest(req, res, next) {
+  try {
+    const doc = await Request.findById(req.params.id);
+    if (!doc) throw createError(404, "Request not found");
+    if (String(doc.reviewerAdminId) !== String(req.user.sub)) {
+      throw createError(403, "Only the assigned admin can reject this request");
+    }
+    if (doc.status === "allocated") throw createError(409, "Request already allocated");
+    if (doc.status === "cancelled") throw createError(409, "Request already cancelled");
+
+    doc.status = "rejected";
+    doc.reason = String(req.body?.reason || "rejected by reviewer");
+    doc.adminApproved = false;
+    doc.kafkaApprovedPublished = false;
+    await doc.save();
+
+    await publishEvent(TOPICS.SYSTEM_EVENTS, String(doc._id), {
+      type: "allocation.request.rejected",
+      requestId: String(doc._id),
+      userId: String(doc.userId),
+      reason: doc.reason,
+      timestamp: new Date().toISOString(),
+    });
+
+    await SystemEvent.create({
+      type: "allocation",
+      severity: "warning",
+      title: "Request Rejected",
+      message: doc.reason,
+      requestId: doc._id,
+      userId: doc.userId,
+    });
+
+    res.json(doc);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function listMyAdminDecisions(req, res, next) {
+  try {
+    if (req.user.role !== "admin") throw createError(403, "Forbidden");
+    const items = await Request.find({
+      reviewerAdminId: req.user.sub,
+      status: { $in: ["allocated", "rejected"] },
+    })
+      .sort({ updatedAt: -1 })
+      .limit(100)
+      .populate("userId", "name email")
+      .lean();
+
+    res.json({ items });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function clearAllRequests(req, res, next) {
+  try {
+    const result = await Request.deleteMany({});
+    res.json({ ok: true, deletedCount: result.deletedCount });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listRequests, createRequest, getRequest, cancelRequest, runAllocationNow, approveRequest, rejectRequest, clearAllRequests, listMyAdminDecisions };

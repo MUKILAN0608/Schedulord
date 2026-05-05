@@ -12,6 +12,9 @@ type Request struct {
 	ResourceType string `json:"resourceType"`
 	Quantity     int    `json:"quantity"`
 	Priority     int    `json:"priority"`
+	UserRole     string `json:"userRole,omitempty"`
+	Timestamp    string `json:"timestamp,omitempty"`
+	QueueLength  int    `json:"queueLength,omitempty"`
 }
 
 type ProcessPayload struct {

@@ -10,6 +10,23 @@ async function listUsers(_req, res, next) {
   }
 }
 
+async function listAdmins(_req, res, next) {
+  try {
+    const admins = await User.find({ role: "admin", isActive: true })
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json({
+      items: admins.map((u) => ({
+        id: u._id,
+        name: u.name || u.email,
+        email: u.email,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getMe(req, res, next) {
   try {
     const user = await User.findById(req.user.sub).lean();
@@ -22,13 +39,13 @@ async function getMe(req, res, next) {
 
 async function createUser(req, res, next) {
   try {
-    const { email, password, role = "user" } = req.body;
+    const { email, password, role = "user", name } = req.body;
     const existing = await User.findOne({ email });
     if (existing) throw createError(409, "Email already registered");
 
     const passwordHash = await User.hashPassword(password);
-    const user = await User.create({ email, passwordHash, role });
-    res.status(201).json({ id: user._id, email: user.email, role: user.role, isActive: user.isActive });
+    const user = await User.create({ name: name || email.split('@')[0], email, passwordHash, role });
+    res.status(201).json({ id: user._id, name: user.name, email: user.email, role: user.role, isActive: user.isActive });
   } catch (err) {
     next(err);
   }
@@ -52,4 +69,4 @@ async function updateUser(req, res, next) {
   }
 }
 
-module.exports = { listUsers, getMe, createUser, updateUser };
+module.exports = { listUsers, listAdmins, getMe, createUser, updateUser };

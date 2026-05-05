@@ -23,22 +23,29 @@ type KafkaMessage struct {
 	Type         string            `json:"type"`
 	RequestID    string            `json:"requestId"`
 	UserID       string            `json:"userId"`
+	UserRole     string            `json:"userRole,omitempty"`
 	ResourceType string            `json:"resourceType"`
 	Quantity     int               `json:"quantity"`
 	Priority     int               `json:"priority"`
+	QueueLength  int               `json:"queueLength,omitempty"`
 	Resources    []models.Resource `json:"resources"`
-	Timestamp    string            `json:"timestamp"`
+	// Approved is tri-state via a pointer:
+	// - omitted in JSON => nil => treat as approved (backwards compatible)
+	// - explicit false => wait for admin approval before processing
+	// - explicit true => approved / legacy auto flows
+	Approved  *bool  `json:"approved,omitempty"`
+	Timestamp string `json:"timestamp"`
 }
 
 // ResultMessage is published to the results topic after processing.
 type ResultMessage struct {
-	Type       string              `json:"type"`
-	RequestID  string              `json:"requestId"`
-	UserID     string              `json:"userId"`
-	Allocation models.Allocation   `json:"allocation"`
-	Simulation map[string]interface{} `json:"simulation,omitempty"`
-	Prediction map[string]interface{} `json:"prediction,omitempty"`
-	ProcessedAt string             `json:"processedAt"`
+	Type        string                 `json:"type"`
+	RequestID   string                 `json:"requestId"`
+	UserID      string                 `json:"userId"`
+	Allocation  models.Allocation      `json:"allocation"`
+	Simulation  map[string]interface{} `json:"simulation,omitempty"`
+	Prediction  map[string]interface{} `json:"prediction,omitempty"`
+	ProcessedAt string                 `json:"processedAt"`
 }
 
 // Consumer reads allocation requests from Kafka and processes them through the engine.
@@ -125,6 +132,16 @@ func (c *Consumer) processMessage(ctx context.Context, msg kafka.Message) {
 		return
 	}
 
+	// Admin-gated workflow: ignore unapproved requests until the gateway re-publishes with approved=true.
+	if incoming.Approved != nil && !*incoming.Approved {
+		c.logger.Info("Skipping unapproved Kafka request (awaiting admin approval)",
+			zap.String("requestId", incoming.RequestID),
+			zap.String("type", incoming.Type),
+		)
+		_ = c.reader.CommitMessages(ctx, msg)
+		return
+	}
+
 	c.logger.Info("Processing Kafka event",
 		zap.String("requestId", incoming.RequestID),
 		zap.String("type", incoming.Type),
@@ -138,6 +155,9 @@ func (c *Consumer) processMessage(ctx context.Context, msg kafka.Message) {
 			ResourceType: incoming.ResourceType,
 			Quantity:     incoming.Quantity,
 			Priority:     incoming.Priority,
+			UserRole:     incoming.UserRole,
+			Timestamp:    incoming.Timestamp,
+			QueueLength:  incoming.QueueLength,
 		},
 		Resources: incoming.Resources,
 	}

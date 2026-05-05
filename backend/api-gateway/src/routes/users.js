@@ -1,15 +1,17 @@
 const express = require("express");
 const Joi = require("joi");
 const { authenticateJWT, requireRole } = require("../middleware/auth");
-const { listUsers, getMe, createUser, updateUser } = require("../controllers/usersController");
+const { listUsers, listAdmins, getMe, createUser, updateUser } = require("../controllers/usersController");
 
 const router = express.Router();
 
 router.get("/me", authenticateJWT, getMe);
+router.get("/admins", authenticateJWT, listAdmins);
 
 router.get("/", authenticateJWT, requireRole("admin"), listUsers);
 
 const createSchema = Joi.object({
+  name: Joi.string().min(1).max(100).optional(),
   email: Joi.string().email().required(),
   password: Joi.string().min(8).max(200).required(),
   role: Joi.string().valid("admin", "user").default("user"),

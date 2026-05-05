@@ -1,4 +1,4 @@
-const { Kafka, logLevel } = require("kafkajs");
+const { Kafka, logLevel, Partitioners } = require("kafkajs");
 const { env } = require("./env");
 const { logger } = require("../utils/logger");
 
@@ -20,12 +20,15 @@ async function connectKafkaProducer() {
     producer = kafka.producer({
       allowAutoTopicCreation: true,
       transactionTimeout: 30000,
+      createPartitioner: Partitioners.LegacyPartitioner,
     });
     await producer.connect();
     logger.info("Kafka producer connected");
   } catch (err) {
-    logger.error({ err }, "FATAL: Kafka producer connection failed. Kafka is strictly required.");
-    process.exit(1);
+    // Do not crash the gateway if Kafka is temporarily unavailable.
+    // Downstream logic will fall back to requestProcessor when needed.
+    logger.error({ err }, "Kafka producer connection failed — continuing without Kafka");
+    producer = null;
   }
 }
 

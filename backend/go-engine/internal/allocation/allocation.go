@@ -4,6 +4,7 @@ import (
 	"math"
 	"sort"
 
+	"schedulord-go-engine/internal/aisupport"
 	"schedulord-go-engine/internal/models"
 )
 
@@ -12,9 +13,11 @@ import (
 // - Prefer higher capacity for larger quantity requests
 // - Boost by request priority
 // - Compute confidence based on gap between best and second-best
-type Engine struct{}
+type Engine struct {
+	ai *aisupport.Pipeline
+}
 
-func New() *Engine { return &Engine{} }
+func New() *Engine { return &Engine{ai: aisupport.New()} }
 
 func (a *Engine) Decide(payload models.ProcessPayload) models.ProcessResult {
 	req := payload.Request
@@ -31,6 +34,7 @@ func (a *Engine) Decide(payload models.ProcessPayload) models.ProcessResult {
 	}
 
 	if len(candidates) == 0 {
+		aiOut := a.ai.Evaluate(aisupport.BuildInput(payload))
 		return models.ProcessResult{
 			Allocation: models.Allocation{
 				ResourceID: "",
@@ -40,6 +44,7 @@ func (a *Engine) Decide(payload models.ProcessPayload) models.ProcessResult {
 				Reason:     "no matching available resources",
 				Details: map[string]interface{}{
 					"resourceType": req.ResourceType,
+					"aiSupport":    aiOut,
 				},
 			},
 		}
@@ -51,11 +56,15 @@ func (a *Engine) Decide(payload models.ProcessPayload) models.ProcessResult {
 	}
 	scoredList := make([]scored, 0, len(candidates))
 
+	aiOut := a.ai.Evaluate(aisupport.BuildInput(payload))
 	for _, r := range candidates {
 		quantityFit := float64(min(r.Capacity, req.Quantity)) / float64(max(1, req.Quantity))
-		priorityBoost := float64(req.Priority) / 100.0
+		priorityBoost := aiOut.PriorityScore
 		capacityBonus := math.Log1p(float64(r.Capacity)) / 10.0
-		score := 0.6*quantityFit + 0.3*priorityBoost + 0.1*capacityBonus
+		feasibilityFactor := aiOut.FeasibilityScore
+		loadPenalty := 1.0 - aiOut.PredictedLoad*0.5
+		// Greedy utility function that combines AI guidance + deterministic fit.
+		score := (0.5*quantityFit + 0.3*priorityBoost + 0.2*capacityBonus) * feasibilityFactor * loadPenalty
 		scoredList = append(scoredList, scored{r: r, score: score})
 	}
 
@@ -81,10 +90,10 @@ func (a *Engine) Decide(payload models.ProcessPayload) models.ProcessResult {
 
 	return models.ProcessResult{
 		Allocation: models.Allocation{
-			ResourceID: best.r.ID,
-			Score:      best.score,
-			Confidence: confidence,
-			Strategy:   "immediate",
+			ResourceID:   best.r.ID,
+			Score:        best.score,
+			Confidence:   confidence,
+			Strategy:     "immediate",
 			Alternatives: alternatives,
 			Details: map[string]interface{}{
 				"matchedType":    req.ResourceType,
@@ -92,6 +101,8 @@ func (a *Engine) Decide(payload models.ProcessPayload) models.ProcessResult {
 				"quantity":       req.Quantity,
 				"priority":       req.Priority,
 				"candidateCount": len(candidates),
+				"aiSupport":      aiOut,
+				"decisionLog":    aiOut.DecisionLog,
 			},
 		},
 	}

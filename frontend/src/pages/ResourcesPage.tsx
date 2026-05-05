@@ -75,15 +75,18 @@ export default function ResourcesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-10 max-w-6xl mx-auto min-h-screen">
+      {/* Enterprise Title */}
+      <div className="flex flex-col items-center justify-center text-center border-b border-[var(--border-color)] pb-6 mb-8">
+        <h1 className="text-3xl md:text-4xl font-black text-[var(--text-primary)] uppercase tracking-[0.15em]">Resource Explorer</h1>
+        <p className="text-[10px] md:text-[12px] text-[var(--text-secondary)] uppercase tracking-[0.25em] font-bold mt-3">Manage and monitor system resources</p>
+        <div className="w-16 h-[2px] bg-[#D4AF37] opacity-30 mt-4 rounded-full" />
+      </div>
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Resource Explorer</h1>
-          <p className="text-sm text-[#636380] mt-1">Manage and monitor system resources</p>
-        </div>
+        <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-widest font-bold">{resources.length} resources registered</span>
         {isAdmin && (
           <button onClick={() => setShowCreate(!showCreate)} className="btn-primary" id="create-resource-btn">
-            + New Resource
+            {showCreate ? 'Cancel' : '+ New Resource'}
           </button>
         )}
       </div>

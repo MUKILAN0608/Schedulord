@@ -1,96 +1,89 @@
 {
   "uid": "schedulord-overview",
-  "title": "Schedulord System Overview",
+  "title": "Schedulord Enterprise Observability",
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "10s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
   "panels": [
     {
       "type": "stat",
-      "title": "API Gateway - Active Requests/sec",
+      "title": "API Gateway Availability",
       "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
-      "targets": [
-        {
-          "expr": "sum(rate(node_http_requests_total[1m]))",
-          "legendFormat": "rps"
-        }
-      ]
+      "targets": [{ "expr": "max(up{job=\"api-gateway\"})", "legendFormat": "up" }]
     },
     {
       "type": "stat",
-      "title": "Go Engine - Active Requests/sec",
+      "title": "Go Engine Availability",
       "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
-      "targets": [
-        {
-          "expr": "sum(rate(go_engine_requests_total[1m]))",
-          "legendFormat": "rps"
-        }
-      ]
+      "targets": [{ "expr": "max(up{job=\"go-engine\"})", "legendFormat": "up" }]
     },
     {
       "type": "stat",
       "title": "Active WebSocket Connections",
       "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
-      "targets": [
-        {
-          "expr": "schedulord_websocket_connections",
-          "legendFormat": "connections"
-        }
-      ]
+      "targets": [{ "expr": "schedulord_websocket_connections", "legendFormat": "connections" }]
     },
     {
       "type": "stat",
-      "title": "Kafka Events Published",
+      "title": "Kafka Publish Success / sec",
       "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
-      "targets": [
-        {
-          "expr": "sum(rate(schedulord_kafka_events_published_total{status=\"success\"}[5m]))",
-          "legendFormat": "events/sec"
-        }
-      ]
+      "targets": [{ "expr": "sum(rate(schedulord_kafka_events_published_total{status=\"success\"}[5m]))", "legendFormat": "success" }]
     },
     {
       "type": "timeseries",
-      "title": "API Gateway - Requests/sec by Method",
-      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
-      "targets": [
-        {
-          "expr": "sum by (method) (rate(node_http_requests_total[1m]))",
-          "legendFormat": "{{method}}"
-        }
-      ]
+      "title": "API Throughput by Method (RPS)",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 7 },
+      "targets": [{ "expr": "sum by (method) (rate(node_http_requests_total[1m]))", "legendFormat": "{{method}}" }]
     },
     {
       "type": "timeseries",
-      "title": "API Gateway - Latency p95 (s)",
-      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(node_http_request_duration_seconds_bucket[5m])))",
-          "legendFormat": "p95"
-        }
-      ]
+      "title": "API Latency (p95 seconds)",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 7 },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le) (rate(node_http_request_duration_seconds_bucket[5m])))", "legendFormat": "api p95" }]
     },
     {
       "type": "timeseries",
-      "title": "Go Engine - /process duration p95 (s)",
-      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, rate(go_engine_process_duration_seconds_bucket[5m]))",
-          "legendFormat": "p95"
-        }
-      ]
+      "title": "Go /process Latency (p95 seconds)",
+      "gridPos": { "x": 0, "y": 11, "w": 12, "h": 7 },
+      "targets": [{ "expr": "histogram_quantile(0.95, rate(go_engine_process_duration_seconds_bucket[5m]))", "legendFormat": "process p95" }]
     },
     {
       "type": "timeseries",
-      "title": "Allocation Decisions by Strategy",
-      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "title": "Go Engine Requests by Endpoint",
+      "gridPos": { "x": 12, "y": 11, "w": 12, "h": 7 },
+      "targets": [{ "expr": "sum by (endpoint) (rate(go_engine_requests_total[1m]))", "legendFormat": "{{endpoint}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Allocation Outcomes (rate)",
+      "gridPos": { "x": 0, "y": 18, "w": 12, "h": 7 },
+      "targets": [{ "expr": "sum by (status) (rate(schedulord_allocations_total[5m]))", "legendFormat": "{{status}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Allocation Strategy Mix (rate)",
+      "gridPos": { "x": 12, "y": 18, "w": 12, "h": 7 },
+      "targets": [{ "expr": "sum by (strategy) (rate(schedulord_allocations_total[5m]))", "legendFormat": "{{strategy}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Kafka Fallback Events (risk)",
+      "gridPos": { "x": 0, "y": 25, "w": 12, "h": 7 },
+      "targets": [{ "expr": "sum(rate(schedulord_kafka_events_published_total{status=\"fallback\"}[5m]))", "legendFormat": "fallback/sec" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "API Error Rate (5xx ratio)",
+      "gridPos": { "x": 12, "y": 25, "w": 12, "h": 7 },
       "targets": [
         {
-          "expr": "sum by (strategy) (rate(schedulord_allocations_total[5m]))",
-          "legendFormat": "{{strategy}}"
+          "expr": "sum(rate(node_http_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(node_http_requests_total[5m])), 0.0001)",
+          "legendFormat": "5xx ratio"
         }
       ]
     }

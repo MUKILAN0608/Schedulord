@@ -19,25 +19,53 @@ async function getDashboardStats(req, res, next) {
       userFilter = { userId: req.user.sub };
     }
 
-    const [
-      totalResources,
-      availableResources,
-      totalRequests,
-      pendingRequests,
-      allocatedRequests,
-      rejectedRequests,
-      recentEvents,
-      totalAllocations
-    ] = await Promise.all([
-      Resource.countDocuments(),
-      Resource.countDocuments({ isAvailable: true }),
-      Request.countDocuments(userFilter),
-      Request.countDocuments({ ...userFilter, status: "pending" }),
-      Request.countDocuments({ ...userFilter, status: "allocated" }),
-      Request.countDocuments({ ...userFilter, status: "rejected" }),
-      SystemEvent.find(userFilter).sort({ createdAt: -1 }).limit(20).lean(),
-      Request.countDocuments({ ...userFilter, status: "allocated" }), // Allocations matching user
-    ]);
+    let totalResources = 0;
+    let availableResources = 0;
+    let totalRequests = 0;
+    let pendingRequests = 0;
+    let allocatedRequests = 0;
+    let rejectedRequests = 0;
+    let recentEvents = [];
+    let totalAllocations = 0;
+
+    if (req.user.role === "admin") {
+      [
+        totalResources,
+        availableResources,
+        totalRequests,
+        pendingRequests,
+        allocatedRequests,
+        rejectedRequests,
+        recentEvents,
+        totalAllocations,
+      ] = await Promise.all([
+        Resource.countDocuments(),
+        Resource.countDocuments({ isAvailable: true }),
+        Request.countDocuments(userFilter),
+        Request.countDocuments({ ...userFilter, status: "pending" }),
+        Request.countDocuments({ ...userFilter, status: "allocated" }),
+        Request.countDocuments({ ...userFilter, status: "rejected" }),
+        SystemEvent.find(userFilter).sort({ createdAt: -1 }).limit(20).lean(),
+        Request.countDocuments({ ...userFilter, status: "allocated" }),
+      ]);
+    } else {
+      const userRequests = await Request.find({ userId: req.user.sub }, "_id status").lean();
+      const requestIds = userRequests.map((r) => r._id);
+      const userAllocations = await Allocation.find({ requestId: { $in: requestIds } }, "resourceId").lean();
+      const resourceIds = [...new Set(userAllocations.map((a) => String(a.resourceId)))];
+      const userResources = resourceIds.length
+        ? await Resource.find({ _id: { $in: resourceIds } }, "isAvailable").lean()
+        : [];
+
+      totalResources = userResources.length;
+      availableResources = userResources.filter((r) => r.isAvailable).length;
+      totalRequests = userRequests.length;
+      pendingRequests = userRequests.filter((r) => r.status === "pending" || r.status === "processing").length;
+      allocatedRequests = userRequests.filter((r) => r.status === "allocated").length;
+      rejectedRequests = userRequests.filter((r) => r.status === "rejected").length;
+      totalAllocations = allocatedRequests;
+      recentEvents = await SystemEvent.find({ userId: req.user.sub }).sort({ createdAt: -1 }).limit(20).lean();
+    }
 
     const stats = {
       resources: { 
@@ -65,8 +93,14 @@ async function getDashboardStats(req, res, next) {
 // Resource utilization breakdown
 async function getResourceUtilization(req, res, next) {
   try {
-    const resources = await Resource.find().lean();
-    const allocations = await Allocation.find().populate("requestId").lean();
+    let resources = await Resource.find().lean();
+    let allocations = await Allocation.find().populate("requestId").lean();
+
+    if (req.user.role !== "admin") {
+      allocations = allocations.filter((a) => String(a.requestId?.userId || "") === String(req.user.sub));
+      const allowedResourceIds = new Set(allocations.map((a) => String(a.resourceId)));
+      resources = resources.filter((r) => allowedResourceIds.has(String(r._id)));
+    }
 
     const utilMap = {};
     for (const r of resources) {
@@ -201,7 +235,7 @@ async function getPredictionData(req, res, next) {
   try {
     const resourceType = req.query.resourceType || "all";
     const data = await getPrediction(`?resourceType=${resourceType}`);
-    res.json(data);
+    return res.json(data);
   } catch (err) {
     next(err);
   }
@@ -212,7 +246,7 @@ async function getSimulationData(req, res, next) {
   try {
     const resourceType = req.query.resourceType || "all";
     const data = await runSimulation(`?resourceType=${resourceType}`);
-    res.json(data);
+    return res.json(data);
   } catch (err) {
     next(err);
   }

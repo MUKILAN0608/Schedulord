@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { analyticsApi } from '../api'
+import { analyticsApi, requestsApi } from '../api'
 import { useSelector } from 'react-redux'
 import { RootState } from '../store/store'
 import { connectSocket, getSocket } from '../socket'
@@ -15,13 +15,14 @@ interface DashboardStats {
   recentEvents: any[]
 }
 
-export default function DashboardPage() {
+export default function DashboardPage({ mode }: { mode?: 'admin' | 'user' }) {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [acceptedItems, setAcceptedItems] = useState<any[]>([])
 
   const user = useSelector((s: RootState) => s.auth.user)
-  const isClient = user?.role !== 'admin'
+  const isClient = mode ? mode !== 'admin' : user?.role !== 'admin'
 
   useEffect(() => {
     loadData()
@@ -49,6 +50,10 @@ export default function DashboardPage() {
       ])
       setStats(dashData)
       setEvents(eventsData.events || [])
+      if (!isClient) {
+        const accepted = await requestsApi.listWithParams('allocated')
+        setAcceptedItems((accepted.items || []).slice(0, 8))
+      }
     } catch (err) {
       console.error('Failed to load dashboard:', err)
     } finally {
@@ -280,6 +285,42 @@ export default function DashboardPage() {
         </motion.div>
 
       </div>
+
+      {!isClient && (
+        <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[11px] uppercase tracking-widest font-black text-[var(--text-primary)]">Accepted / Allocated Details</h3>
+            <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-widest">Admin View Only</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--border-color)]">
+                  <th className="text-left py-2 text-[10px] uppercase tracking-widest text-[var(--text-secondary)]">Request</th>
+                  <th className="text-left py-2 text-[10px] uppercase tracking-widest text-[var(--text-secondary)]">Type</th>
+                  <th className="text-left py-2 text-[10px] uppercase tracking-widest text-[var(--text-secondary)]">Qty</th>
+                  <th className="text-left py-2 text-[10px] uppercase tracking-widest text-[var(--text-secondary)]">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {acceptedItems.map((r) => (
+                  <tr key={r._id} className="border-b border-[var(--border-color)]/40">
+                    <td className="py-2 text-[var(--text-primary)] font-mono">{String(r._id).slice(-6)}</td>
+                    <td className="py-2 text-[var(--text-secondary)]">{r.resourceType}</td>
+                    <td className="py-2 text-[var(--text-primary)]">{r.quantity}</td>
+                    <td className="py-2 text-[var(--chart-green)] uppercase text-[10px] tracking-widest font-bold">{r.status}</td>
+                  </tr>
+                ))}
+                {acceptedItems.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-4 text-[10px] uppercase tracking-widest text-[var(--text-secondary)]">No allocated records yet</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

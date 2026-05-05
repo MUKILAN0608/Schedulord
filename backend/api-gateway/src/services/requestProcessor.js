@@ -29,6 +29,8 @@ async function tick() {
 
     const doc = await Request.findOneAndUpdate(
       {
+        adminApproved: true,
+        kafkaApprovedPublished: false,
         status: { $in: ["pending", "processing"] },
         $or: [
           { status: "pending" },
@@ -80,8 +82,12 @@ async function processOne(requestDoc) {
   }).lean();
   if (!latest) return;
   if (latest.status === "cancelled") return;
+  if (!latest.adminApproved) return;
 
-  const available = await Resource.find({ type: latest.resourceType, isAvailable: true }).lean();
+  let available = await Resource.find({ type: latest.resourceType, isAvailable: true }).lean();
+  if (latest.preferredResourceId) {
+    available = available.filter((r) => String(r._id) === String(latest.preferredResourceId));
+  }
 
   let decision;
   try {
@@ -91,6 +97,8 @@ async function processOne(requestDoc) {
         resourceType: latest.resourceType,
         quantity: latest.quantity,
         priority: latest.priority,
+        userRole: "user",
+        timestamp: new Date().toISOString(),
       },
       resources: available.map((r) => ({
         id: String(r._id),
@@ -160,8 +168,8 @@ async function processOne(requestDoc) {
     await SystemEvent.create({
       type: "allocation",
       severity: "info",
-      title: "Auto-Allocated",
-      message: `Resource ${allocation.resourceId} assigned (score: ${(allocation.score || 0).toFixed(2)}, confidence: ${((allocation.confidence || 0) * 100).toFixed(0)}%)`,
+      title: "AI Allocation Completed",
+      message: `Post-approval AI allocated resource ${allocation.resourceId} (score: ${(allocation.score || 0).toFixed(2)}, confidence: ${((allocation.confidence || 0) * 100).toFixed(0)}%)`,
       requestId: latest._id,
       resourceId: allocation.resourceId,
       userId: latest.userId,

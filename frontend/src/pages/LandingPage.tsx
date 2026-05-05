@@ -23,7 +23,6 @@ const LandingPage: React.FC = () => {
     <div className="min-h-screen bg-[#020202] text-white selection:bg-gold selection:text-black pb-0 overflow-x-hidden w-full font-sans">
       <nav className="fixed top-0 w-full z-50 px-10 py-8 flex justify-end items-center bg-gradient-to-b from-[#050505]/90 to-transparent backdrop-blur-md">
         <div className="flex gap-10 items-center">
-          <a href="#features" className="text-[11px] font-black uppercase tracking-[0.2em] text-white/50 hover:text-white transition-colors">Architecture</a>
           <a href="#portals" className="nav-signin-btn">Sign In</a>
         </div>
       </nav>
@@ -33,8 +32,7 @@ const LandingPage: React.FC = () => {
         className="relative w-full min-h-screen flex flex-col items-center justify-center text-center px-4 md:px-10 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: "url('/background.png')" }}
       >
-        {/* Cinematic Grain + Subtle Vignette */}
-        <div className="absolute inset-0 hero-grain-overlay z-0" />
+        {/* Cinematic Vignette */}
         <div className="absolute inset-0 vignette-overlay z-0" />
 
         <div className="relative z-10 flex flex-col items-center w-full max-w-6xl space-y-12">
