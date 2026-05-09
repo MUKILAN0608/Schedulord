@@ -4,7 +4,7 @@ import { usersApi } from '../api'
 
 interface User {
   id: string
-  email: string
+  email?: string
   role: string
   isActive: boolean
   createdAt: string
@@ -62,6 +62,11 @@ export default function AdminManagePage() {
 
   const admins = users.filter(u => u.role === 'admin')
   const clients = users.filter(u => u.role === 'user')
+  const displayName = (u: User) => {
+    if (u.name && u.name.trim()) return u.name.trim()
+    if (u.email && u.email.includes('@')) return u.email.split('@')[0]
+    return 'user'
+  }
 
   if (loading) {
     return (
@@ -107,9 +112,11 @@ export default function AdminManagePage() {
           </motion.div>
         ))}
       </div>
-      <div className="flex gap-2">
-        <button onClick={() => setActiveTab('overview')} className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest border ${activeTab === 'overview' ? 'bg-[#D4AF37] text-black border-[#D4AF37]' : 'border-[var(--border-color)] text-[var(--text-secondary)]'}`}>Accounts Overview</button>
-        <button onClick={() => setActiveTab('provision')} className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest border ${activeTab === 'provision' ? 'bg-[#D4AF37] text-black border-[#D4AF37]' : 'border-[var(--border-color)] text-[var(--text-secondary)]'}`}>Provision Access</button>
+      <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-3 md:p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-w-[520px] mx-auto">
+          <button onClick={() => setActiveTab('overview')} className={`w-full px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all duration-150 ${activeTab === 'overview' ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-[0_2px_10px_rgba(212,175,55,0.35)]' : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>Accounts Overview</button>
+          <button onClick={() => setActiveTab('provision')} className={`w-full px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all duration-150 ${activeTab === 'provision' ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-[0_2px_10px_rgba(212,175,55,0.35)]' : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>Provision Access</button>
+        </div>
       </div>
 
       {/* Create Admin / User Section */}
@@ -234,7 +241,7 @@ export default function AdminManagePage() {
 
       {/* Users Table */}
       {activeTab === 'overview' && (
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] overflow-hidden">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] overflow-hidden shadow-[0_6px_20px_rgba(0,0,0,0.08)]">
         <div className="p-5 border-b border-[var(--border-color)] bg-[var(--bg-primary)] flex items-center justify-between">
           <h3 className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest">All Accounts ({users.length})</h3>
           <button onClick={loadUsers} className="text-[10px] text-[var(--text-secondary)] hover:text-[#D4AF37] uppercase tracking-widest font-bold transition-colors">
@@ -245,7 +252,7 @@ export default function AdminManagePage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--border-color)] bg-[var(--bg-secondary)]">
-                <th className="text-left px-6 py-4 text-[10px] text-[var(--text-secondary)] uppercase tracking-widest font-bold">Email</th>
+                <th className="text-left px-6 py-4 text-[10px] text-[var(--text-secondary)] uppercase tracking-widest font-bold">User Name</th>
                 <th className="text-left px-6 py-4 text-[10px] text-[var(--text-secondary)] uppercase tracking-widest font-bold">Role</th>
                 <th className="text-left px-6 py-4 text-[10px] text-[var(--text-secondary)] uppercase tracking-widest font-bold">Status</th>
                 <th className="text-left px-6 py-4 text-[10px] text-[var(--text-secondary)] uppercase tracking-widest font-bold">Created</th>
@@ -269,7 +276,12 @@ export default function AdminManagePage() {
                       className="hover:bg-[var(--bg-secondary)] transition-colors"
                     >
                       <td className="px-6 py-4">
-                        <span className="font-mono text-[var(--text-primary)] text-sm">{u.email}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex w-7 h-7 items-center justify-center rounded-full border border-[#D4AF37]/40 text-[#D4AF37] text-[10px] font-black uppercase">
+                            {displayName(u).slice(0, 1)}
+                          </span>
+                          <span className="text-[var(--text-primary)] text-sm font-semibold">{displayName(u)}</span>
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 border rounded-sm ${

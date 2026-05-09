@@ -3,34 +3,18 @@ import { motion } from 'framer-motion';
 import { SovereignDisplay } from '../components/SovereignDisplay';
 
 const LandingPage: React.FC = () => {
-  const container = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.15,
-        delayChildren: 0.2,
-      }
-    }
-  };
-
-  const item = {
-    hidden: { opacity: 0, y: 30 },
-    show: { opacity: 1, y: 0, transition: { duration: 1, ease: [0.16, 1, 0.3, 1] } }
-  };
-
   return (
     <div className="min-h-screen bg-[#020202] text-white selection:bg-gold selection:text-black pb-0 overflow-x-hidden w-full font-sans">
       <nav className="fixed top-0 w-full z-50 px-10 py-8 flex justify-end items-center bg-gradient-to-b from-[#050505]/90 to-transparent backdrop-blur-md">
-        <div className="flex gap-10 items-center">
+        <div className="flex gap-6 md:gap-10 items-center">
+          <a href="#architecture" className="nav-signin-btn">Architecture</a>
           <a href="#portals" className="nav-signin-btn">Sign In</a>
         </div>
       </nav>
       
       {/* Hero: Sovereign Glass Section */}
       <section 
-        className="relative w-full min-h-screen flex flex-col items-center justify-center text-center px-4 md:px-10 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: "url('/background.png')" }}
+        className="landing-hero-bg relative w-full min-h-screen flex flex-col items-center justify-center text-center px-4 md:px-10 bg-cover bg-center bg-no-repeat"
       >
         {/* Cinematic Vignette */}
         <div className="absolute inset-0 vignette-overlay z-0" />
@@ -53,8 +37,8 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* NEW: Architectural Reveal Section */}
-      <section id="features" className="relative py-20 px-6 md:px-20 border-t border-white/5">
+      {/* Architecture Overview + Project Details */}
+      <section id="architecture" className="relative py-20 px-6 md:px-20 border-t border-white/5">
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
           {/* Left: Intellectual Layer */}
           <motion.div 

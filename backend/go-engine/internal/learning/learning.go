@@ -31,15 +31,11 @@ func New(predict *prediction.Engine) *Module {
 
 func (l *Module) Feedback(result models.ProcessResult, accepted bool) {
 	resID := result.Allocation.ResourceID
-	if resID == "" {
-		return
-	}
-
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	l.totalDecisions++
-	if accepted {
+	if accepted && resID != "" {
 		l.resourceWins[resID]++
 		l.totalAccepted++
 		l.predict.Bump("all", 1.0)
@@ -49,8 +45,16 @@ func (l *Module) Feedback(result models.ProcessResult, accepted bool) {
 			l.predict.Bump(rt, 1.0)
 		}
 	} else {
-		l.resourceLoss[resID]++
+		if resID != "" {
+			l.resourceLoss[resID]++
+		}
 		l.predict.Bump("all", 0.2)
+		// Even rejected/no-allocation requests should train per-type demand pressure.
+		if rt, ok := result.Allocation.Details["resourceType"].(string); ok && rt != "" {
+			l.predict.Bump(rt, 0.2)
+		} else if rt, ok := result.Allocation.Details["matchedType"].(string); ok && rt != "" {
+			l.predict.Bump(rt, 0.2)
+		}
 	}
 }
 

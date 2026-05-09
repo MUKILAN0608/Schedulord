@@ -40,7 +40,7 @@ async function cacheGet(key) {
   try {
     const val = await redis.get(key);
     return val ? JSON.parse(val) : null;
-  } catch (_e) {
+  } catch {
     return null;
   }
 }
@@ -49,7 +49,7 @@ async function cacheSet(key, value, ttlSeconds = 60) {
   if (!redis) return;
   try {
     await redis.set(key, JSON.stringify(value), "EX", ttlSeconds);
-  } catch (_e) {
+  } catch {
     // ignore
   }
 }
@@ -58,7 +58,7 @@ async function cacheDel(key) {
   if (!redis) return;
   try {
     await redis.del(key);
-  } catch (_e) {
+  } catch {
     // ignore
   }
 }

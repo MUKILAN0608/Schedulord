@@ -23,7 +23,7 @@ function initSockets(httpServer) {
       const decoded = jwt.verify(token, env.JWT_SECRET);
       socket.user = decoded;
       return next();
-    } catch (_e) {
+    } catch {
       return next(new Error("unauthorized"));
     }
   });

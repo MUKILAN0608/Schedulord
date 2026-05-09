@@ -8,6 +8,31 @@ const { requestAllocationDecision } = require("../services/goClient");
 const { publishEvent, TOPICS } = require("../config/kafka");
 const { kafkaEventsPublished } = require("../metrics/metrics");
 
+function buildGreedyImmediateAllocation(doc, available) {
+  if (!Array.isArray(available) || available.length === 0) return null;
+  const candidates = available
+    .filter((r) => r && r.isAvailable && Number(r.capacity || 0) >= Number(doc.quantity || 0))
+    .sort((a, b) => Number(b.capacity || 0) - Number(a.capacity || 0));
+  if (candidates.length === 0) return null;
+  const selected = candidates[0];
+  return {
+    resourceId: String(selected._id),
+    score: 0.62,
+    confidence: 0.7,
+    strategy: "approve-greedy-immediate",
+    reason: "direct allocation during approval",
+    alternatives: candidates.slice(1, 3).map((r) => ({
+      resourceId: String(r._id),
+      score: 0.5,
+      strategy: "approve-greedy-immediate",
+    })),
+    details: {
+      fallbackReason: "direct_approval_allocation",
+      selectedBy: "highest_capacity_available",
+    },
+  };
+}
+
 async function listRequests(req, res, next) {
   try {
     let filter = {};
@@ -16,6 +41,11 @@ async function listRequests(req, res, next) {
       filter.reviewerAdminId = req.user.sub;
       if (req.query.status && req.query.status !== 'all') {
         filter.status = req.query.status;
+        // In decision queue, "pending" should mean "awaiting admin decision",
+        // not "already approved and waiting for allocator completion".
+        if (req.query.status === "pending") {
+          filter.adminApproved = false;
+        }
       }
       if (req.query.userId) {
         filter.userId = req.query.userId;
@@ -269,6 +299,91 @@ async function approveRequest(req, res, next) {
     doc.kafkaApprovedPublished = !!published;
     doc.reason = "accepted by admin";
     if (doc.status !== "pending") doc.status = "pending";
+
+    // Try to allocate immediately so approval resolves to "allocated" in one action.
+    // If AI decision fails or returns no resource, use direct greedy allocation fallback.
+    let immediateAllocated = false;
+    let immediateAllocation = null;
+    try {
+      const decision = await requestAllocationDecision({
+        request: {
+          id: String(doc._id),
+          resourceType: doc.resourceType,
+          quantity: doc.quantity,
+          priority: doc.priority,
+          userRole: "user",
+          timestamp: new Date().toISOString(),
+          queueLength,
+        },
+        resources: available.map((r) => ({
+          id: String(r._id),
+          type: r.type,
+          capacity: r.capacity,
+          isAvailable: r.isAvailable,
+        })),
+      });
+
+      const allocation = decision?.allocation;
+      if (allocation?.resourceId) immediateAllocation = allocation;
+      if (!immediateAllocation) {
+        immediateAllocation = buildGreedyImmediateAllocation(doc, available);
+      }
+    } catch {
+      immediateAllocation = buildGreedyImmediateAllocation(doc, available);
+    }
+
+    if (immediateAllocation?.resourceId) {
+      // Atomically reserve capacity
+      const reserved = await Resource.findOneAndUpdate(
+        { _id: immediateAllocation.resourceId, isAvailable: true, capacity: { $gte: doc.quantity } },
+        { $inc: { capacity: -doc.quantity } },
+        { new: true }
+      );
+
+      if (reserved) {
+        if (reserved.capacity <= 0 && reserved.isAvailable) {
+          reserved.isAvailable = false;
+          await reserved.save();
+        }
+
+        await Allocation.updateOne(
+          { requestId: doc._id },
+          {
+            $setOnInsert: {
+              requestId: doc._id,
+              resourceId: immediateAllocation.resourceId,
+              decidedBy: "approve-immediate",
+              score: immediateAllocation.score || 0,
+              confidence: immediateAllocation.confidence || 0,
+              strategy: immediateAllocation.strategy || "immediate",
+              alternatives: immediateAllocation.alternatives || [],
+              details: immediateAllocation.details || {},
+            },
+          },
+          { upsert: true }
+        );
+
+        doc.status = "allocated";
+        doc.reason = "";
+        immediateAllocated = true;
+
+        await SystemEvent.create({
+          type: "allocation",
+          severity: "info",
+          title: "Resource Allocated",
+          message:
+            "Request " +
+            doc._id +
+            " allocated immediately on approval to resource " +
+            immediateAllocation.resourceId,
+          requestId: doc._id,
+          resourceId: immediateAllocation.resourceId,
+          userId: doc.userId,
+          metadata: immediateAllocation,
+        });
+      }
+    }
+
     await doc.save();
 
     if (published) {
@@ -287,7 +402,7 @@ async function approveRequest(req, res, next) {
       metadata: { kafkaPublished: published },
     });
 
-    res.json({ ok: true, kafkaPublished: published });
+    res.json({ ok: true, kafkaPublished: published, immediateAllocated, status: doc.status });
   } catch (err) {
     next(err);
   }

@@ -39,13 +39,40 @@ registry.registerMetric(kafkaEventsPublished);
 registry.registerMetric(allocationsTotal);
 registry.registerMetric(activeWebsocketConnections);
 
+/** Full path for labels (e.g. /metrics not "/" from the inner router). */
+function metricRouteLabel(req) {
+  const base = req.baseUrl || "";
+  const sub = req.route?.path;
+  if (base && sub !== undefined) {
+    if (sub === "/") return base || "/";
+    return `${base}${sub}`.replace(/\/+/g, "/") || "/";
+  }
+  return req.path || req.route?.path || "unknown";
+}
+
+/** Tiny increments so Prometheus has series before first real Kafka/allocation event. */
+function warmupSchedulordCounters() {
+  const topic = "schedulord.allocation.requests";
+  const eps = 1e-9;
+  try {
+    kafkaEventsPublished.inc({ topic, status: "success" }, eps);
+    kafkaEventsPublished.inc({ topic, status: "fallback" }, eps);
+    allocationsTotal.inc({ status: "allocated", strategy: "immediate" }, eps);
+    allocationsTotal.inc({ status: "pending", strategy: "none" }, eps);
+    allocationsTotal.inc({ status: "rejected", strategy: "none" }, eps);
+  } catch {
+    /* ignore */
+  }
+}
+warmupSchedulordCounters();
+
 function metricsMiddleware() {
   return (req, res, next) => {
     const start = process.hrtime.bigint();
     res.on("finish", () => {
       const diffNs = process.hrtime.bigint() - start;
       const diffSeconds = Number(diffNs) / 1e9;
-      const route = req.route?.path || req.path || "unknown";
+      const route = metricRouteLabel(req);
       const labels = {
         method: req.method,
         route,

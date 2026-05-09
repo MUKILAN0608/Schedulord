@@ -9,7 +9,8 @@ scrape_configs:
   - job_name: "api-gateway"
     metrics_path: /metrics
     static_configs:
-      - targets: ["api-gateway:8080"]
+      # Must match api-gateway container listen port (see docker-compose PORT)
+      - targets: ["api-gateway:8081"]
 
   - job_name: "go-engine"
     metrics_path: /metrics

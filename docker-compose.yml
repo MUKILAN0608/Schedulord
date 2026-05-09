@@ -77,10 +77,10 @@ services:
     container_name: schedulord-api-gateway
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8081:8081"
     environment:
       NODE_ENV: production
-      PORT: "8080"
+      PORT: "8081"
       MONGODB_URI: "mongodb+srv://Mukilan:Mukilan0608@cluster0.yi7p6ff.mongodb.net/schedulord?retryWrites=true&w=majority&appName=Cluster0"
       JWT_SECRET: "change-me-in-production"
       GO_ENGINE_BASE_URL: "http://go-engine:9090"

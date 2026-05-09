@@ -1,10 +1,27 @@
 const createError = require("http-errors");
 const User = require("../models/User");
 
+function resolveDisplayName(u) {
+  const explicit = String(u.name || "").trim();
+  if (explicit) return explicit;
+  const email = String(u.email || "").trim();
+  if (email && email.includes("@")) return email.split("@")[0];
+  return "user";
+}
+
 async function listUsers(_req, res, next) {
   try {
     const users = await User.find().sort({ createdAt: -1 }).lean();
-    res.json({ items: users.map((u) => ({ id: u._id, email: u.email, role: u.role, isActive: u.isActive, createdAt: u.createdAt })) });
+    res.json({
+      items: users.map((u) => ({
+        id: u._id,
+        name: resolveDisplayName(u),
+        email: u.email,
+        role: u.role,
+        isActive: u.isActive,
+        createdAt: u.createdAt,
+      })),
+    });
   } catch (err) {
     next(err);
   }
@@ -31,7 +48,7 @@ async function getMe(req, res, next) {
   try {
     const user = await User.findById(req.user.sub).lean();
     if (!user) throw createError(404, "User not found");
-    res.json({ id: user._id, email: user.email, role: user.role, isActive: user.isActive, createdAt: user.createdAt });
+    res.json({ id: user._id, name: resolveDisplayName(user), email: user.email, role: user.role, isActive: user.isActive, createdAt: user.createdAt });
   } catch (err) {
     next(err);
   }

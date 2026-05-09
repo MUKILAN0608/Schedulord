@@ -22,6 +22,15 @@ const { ensureBootstrapData } = require("./utils/seedData");
 const { startRequestProcessor } = require("./services/requestProcessor");
 const { startKafkaResultConsumer } = require("./services/kafkaResultConsumer");
 
+function isReadHeavyPath(req) {
+  if (req.method !== "GET") return false;
+  return (
+    req.path.startsWith("/api/analytics") ||
+    req.path.startsWith("/api/requests") ||
+    req.path.startsWith("/api/resources")
+  );
+}
+
 async function main() {
   // Connect infrastructure
   await connectMongo(env.MONGODB_URI);
@@ -30,6 +39,8 @@ async function main() {
   await ensureBootstrapData();
 
   const app = express();
+  const server = http.createServer(app);
+  initSockets(server);
   startKafkaResultConsumer();
   startRequestProcessor();
 
@@ -47,12 +58,21 @@ async function main() {
   app.use(morgan("combined"));
   app.use(attachRequestLogger());
 
+  const isDev = env.NODE_ENV !== "production";
+  const baseLimitPerMin = Number(process.env.API_RATE_LIMIT_PER_MIN || (isDev ? 1500 : 600));
+  const readLimitPerMin = Number(process.env.API_READ_RATE_LIMIT_PER_MIN || (isDev ? 5000 : 1500));
   app.use(
     rateLimit({
       windowMs: 60_000,
-      limit: 300,
+      limit: (req) => (isReadHeavyPath(req) ? readLimitPerMin : baseLimitPerMin),
       standardHeaders: "draft-7",
       legacyHeaders: false,
+      message: {
+        error: {
+          code: "RATE_LIMITED",
+          message: "Too many requests. Please slow down and retry shortly.",
+        },
+      },
     })
   );
 
@@ -66,46 +86,10 @@ async function main() {
   app.use((req, res, next) => next(createError(404, "Route not found")));
   app.use(errorHandler);
 
-  // Try binding to PORT. If PORT is already in use (common with Docker/WSL),
-  // automatically retry on the next ports to avoid a crash loop.
-  const maxPortTries = 10;
-  const basePort = Number.isFinite(env.PORT) ? env.PORT : 8080;
-
-  const tryListen = (port, attempt) => {
-    const server = http.createServer(app);
-    initSockets(server);
-
-    server.on("error", (err) => {
-      if (err && err.code === "EADDRINUSE" && attempt < maxPortTries) {
-        // Best-effort cleanup; if it fails, we still retry with a new server.
-        try {
-          server.close();
-        } catch {
-          // ignore
-        }
-
-        // eslint-disable-next-line no-console
-        console.error(
-          `[schedulord-api-gateway] port ${port} is already in use (EADDRINUSE). ` +
-            `Retrying on ${port + 1}...`
-        );
-        tryListen(port + 1, attempt + 1);
-        return;
-      }
-
-      // eslint-disable-next-line no-console
-      console.error("[schedulord-api-gateway] server error", err);
-      process.exit(1);
-    });
-
-    server.listen(port, () => {
-      process.env.PORT = String(port);
-      // eslint-disable-next-line no-console
-      console.log(`[schedulord-api-gateway] listening on :${port}`);
-    });
-  };
-
-  tryListen(basePort, 0);
+  server.listen(env.PORT, () => {
+    // eslint-disable-next-line no-console
+    console.log(`[schedulord-api-gateway] listening on :${env.PORT}`);
+  });
 }
 
 main().catch((err) => {

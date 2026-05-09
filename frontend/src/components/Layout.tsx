@@ -7,7 +7,6 @@ import { disconnectSocket } from '../socket'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const adminNavItems = [
-  { to: '/panel/dashboard', label: 'Command Center', icon: '◈' },
   { to: '/panel/admin-request-decisions', label: 'Request Decisions', icon: '◉' },
   { to: '/panel/admin-resources', label: 'Resource Control', icon: '▣' },
   { to: '/panel/decisions', label: 'Decision Intel', icon: '◆' },
@@ -94,8 +93,8 @@ export default function Layout() {
                     end={item.to === '/'}
                     onClick={() => { if (window.innerWidth <= 768) setIsSidebarOpen(false) }}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-3 rounded text-xs font-bold uppercase tracking-widest transition-all ${
-                        isActive ? 'bg-[#D4AF37]/10 text-[#D4AF37] border-l-2 border-[#D4AF37]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] border-l-2 border-transparent'
+                      `flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
+                        isActive ? 'bg-[#D4AF37]/12 text-[#D4AF37] border border-[#D4AF37]/35 shadow-[inset_3px_0_0_0_#D4AF37]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] border border-transparent'
                       }`
                     }
                   >

@@ -14,7 +14,7 @@ function authenticateJWT(req, _res, next) {
     const decoded = jwt.verify(token, env.JWT_SECRET);
     req.user = decoded;
     return next();
-  } catch (_e) {
+  } catch {
     return next(createError(401, "Invalid token"));
   }
 }

@@ -12,6 +12,7 @@ import DecisionPage from './pages/DecisionPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import AdminManagePage from './pages/AdminManagePage'
 import AdminRequestDecisionsPage from './pages/AdminRequestDecisionsPage'
+import MonitoringPage from './pages/MonitoringPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuth = useSelector((s: RootState) => s.auth.isAuthenticated)
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="admin-request-decisions" element={<AdminRoute><AdminRequestDecisionsPage /></AdminRoute>} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="admin-manage" element={<AdminRoute><AdminManagePage /></AdminRoute>} />
+        <Route path="monitoring" element={<AdminRoute><MonitoringPage /></AdminRoute>} />
       </Route>
       
       <Route path="*" element={<Navigate to="/" replace />} />

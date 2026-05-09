@@ -7,6 +7,8 @@ require (
 	github.com/prometheus/client_golang v1.19.1
 	github.com/segmentio/kafka-go v0.4.47
 	go.uber.org/zap v1.27.0
+	gorgonia.org/gorgonia v0.9.17
+	gorgonia.org/tensor v0.9.17
 )
 
 require (
@@ -47,7 +49,7 @@ require (
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/xtgo/set v1.0.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
-	go4.org/unsafe/assume-no-moving-gc v0.0.0-20201222180813-1025295fd063 // indirect
+	go4.org/unsafe/assume-no-moving-gc v0.0.0-20231121144256-b99613f794b6 // indirect
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/crypto v0.23.0 // indirect
 	golang.org/x/net v0.25.0 // indirect
@@ -59,8 +61,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorgonia.org/cu v0.9.3 // indirect
 	gorgonia.org/dawson v1.2.0 // indirect
-	gorgonia.org/gorgonia v0.9.17 // indirect
-	gorgonia.org/tensor v0.9.17 // indirect
 	gorgonia.org/vecf32 v0.9.0 // indirect
 	gorgonia.org/vecf64 v0.9.0 // indirect
 )

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"syscall"
@@ -36,10 +37,24 @@ func main() {
 
 	metrics.MustRegister()
 
+	datasetPath, ok := resolveDatasetPath()
+	if !ok {
+		logger.Fatal("AI strict mode: training dataset not found (schedulord_research_dataset_12000.csv)")
+	}
+	if err := os.Setenv("AI_DATASET_PATH", datasetPath); err != nil {
+		logger.Fatal("failed to set AI_DATASET_PATH", zap.Error(err))
+	}
+	logger.Info("AI dataset resolved for training", zap.String("datasetPath", datasetPath))
+
 	workers := envInt("GO_ENGINE_WORKERS", max(2, runtime.NumCPU()/2))
 	alloc := allocation.New()
 	conf := conflict.New()
 	predict := prediction.New()
+	if err := predict.WarmStartFromCSV(datasetPath); err != nil {
+		logger.Warn("prediction warm-start failed", zap.String("datasetPath", datasetPath), zap.Error(err))
+	} else {
+		logger.Info("prediction warm-start completed", zap.String("datasetPath", datasetPath))
+	}
 	sim := simulation.New()
 	learn := learning.New(predict)
 
@@ -52,15 +67,15 @@ func main() {
 
 	kafkaBrokers := os.Getenv("KAFKA_BROKERS")
 	if kafkaBrokers == "" {
-		logger.Fatal("FATAL: KAFKA_BROKERS not set. Kafka is strictly required for execution. Exiting.")
+		logger.Warn("KAFKA_BROKERS is not set; starting Go engine in HTTP-only mode without Kafka consumer")
+	} else {
+		consumer := kafkaConsumer.NewConsumer(core, logger)
+		go func() {
+			logger.Info("Starting Kafka consumer goroutine")
+			consumer.Start(ctx)
+		}()
+		logger.Info("Kafka consumer goroutine launched", zap.String("brokers", kafkaBrokers))
 	}
-
-	consumer := kafkaConsumer.NewConsumer(core, logger)
-	go func() {
-		logger.Info("Starting Kafka consumer goroutine")
-		consumer.Start(ctx)
-	}()
-	logger.Info("Kafka consumer goroutine launched", zap.String("brokers", kafkaBrokers))
 
 	h := &handlers.Handler{Engine: core}
 
@@ -71,7 +86,8 @@ func main() {
 
 	port := os.Getenv("GO_ENGINE_PORT")
 	if port == "" {
-		port = "9090"
+		// Default to 9095 for local direct gateway integration.
+		port = "9095"
 	}
 
 	// Graceful shutdown
@@ -107,4 +123,23 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func resolveDatasetPath() (string, bool) {
+	candidates := []string{}
+	if p := os.Getenv("AI_DATASET_PATH"); p != "" {
+		candidates = append(candidates, p)
+	}
+	candidates = append(candidates,
+		filepath.Join(".", "schedulord_research_dataset_12000.csv"),
+		filepath.Join("..", "schedulord_research_dataset_12000.csv"),
+		filepath.Join("..", "..", "schedulord_research_dataset_12000.csv"),
+		filepath.Join("/src", "schedulord_research_dataset_12000.csv"),
+	)
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p, true
+		}
+	}
+	return "", false
 }

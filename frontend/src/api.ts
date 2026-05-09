@@ -47,6 +47,20 @@ async function apiFetch(path: string, options: FetchOptions = {}) {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    const isAnalyticsFallbackPath =
+      path.startsWith('/analytics/predict') || path.startsWith('/analytics/simulate');
+    const hasFallbackPayload =
+      body &&
+      typeof body === 'object' &&
+      (typeof body.demandSignal === 'number' ||
+        typeof body.spikeProbability === 'number' ||
+        Array.isArray(body.scenarios));
+
+    // Keep UI responsive when backend returns degraded analytics payloads with non-2xx status.
+    if (isAnalyticsFallbackPath && hasFallbackPayload) {
+      return body;
+    }
+
     throw new Error(body?.error?.message || `API Error (${res.status})`);
   }
 
@@ -93,8 +107,9 @@ export const analyticsApi = {
   demandTrends: () => apiFetch('/analytics/demand-trends'),
   allocations: () => apiFetch('/analytics/allocations'),
   events: (limit = 50) => apiFetch(`/analytics/events?limit=${limit}`),
-  predict: (resourceType = 'all') => apiFetch(`/analytics/predict?resourceType=${resourceType}`),
-  simulate: (resourceType = 'all') => apiFetch(`/analytics/simulate?resourceType=${resourceType}`),
+  // Add cache-busting timestamp so prediction/simulation always fetch fresh AI output.
+  predict: (resourceType = 'all') => apiFetch(`/analytics/predict?resourceType=${resourceType}&_ts=${Date.now()}`),
+  simulate: (resourceType = 'all') => apiFetch(`/analytics/simulate?resourceType=${resourceType}&_ts=${Date.now()}`),
 };
 
 export const usersApi = {

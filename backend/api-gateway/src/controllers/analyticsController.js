@@ -2,7 +2,8 @@ const Request = require("../models/Request");
 const Resource = require("../models/Resource");
 const Allocation = require("../models/Allocation");
 const SystemEvent = require("../models/SystemEvent");
-const { getPrediction, runSimulation } = require("../services/goClient");
+const { getPrediction, runSimulation, getEngineHealth } = require("../services/goClient");
+const { logger } = require("../utils/logger");
 const { cacheGet, cacheSet } = require("../config/redis");
 const mongoose = require("mongoose");
 
@@ -231,22 +232,99 @@ async function getSystemEvents(req, res, next) {
 }
 
 // Prediction proxy to Go engine
-async function getPredictionData(req, res, next) {
+async function getPredictionData(req, res, _next) {
   try {
+    res.set("Cache-Control", "no-store");
+    res.set("Pragma", "no-cache");
     const resourceType = req.query.resourceType || "all";
     const data = await getPrediction(`?resourceType=${resourceType}`);
+    await cacheSet(`analytics:predict:${resourceType}`, data, 45);
     return res.json(data);
   } catch (err) {
-    next(err);
+    const resourceType = req.query.resourceType || "all";
+    logger.warn({ err, resourceType }, "Prediction proxy failed; serving resilient fallback");
+    const cached = await cacheGet(`analytics:predict:${resourceType}`);
+    if (cached) {
+      return res.json({
+        ...cached,
+        degraded: true,
+        fallback: "stale_cache",
+        error: {
+          code: err.code || "GO_ENGINE_UNAVAILABLE",
+          message: "Prediction service unavailable; serving last known prediction.",
+        },
+      });
+    }
+
+    return res.status(err.status || 503).json({
+      resourceType,
+      demandSignal: 0,
+      trend: "stable",
+      velocity: 0,
+      spikeProbability: 0,
+      method: "gateway-fallback",
+      trained: false,
+      degraded: true,
+      fallback: "safe_default",
+      recommendation: "Prediction service temporarily unavailable. Keep approvals conservative and monitor service health.",
+      error: {
+        code: err.code || "GO_ENGINE_UNAVAILABLE",
+        message: err.message || "Prediction service unavailable",
+      },
+    });
   }
 }
 
 // Simulation proxy to Go engine
-async function getSimulationData(req, res, next) {
+async function getSimulationData(req, res, _next) {
   try {
+    res.set("Cache-Control", "no-store");
+    res.set("Pragma", "no-cache");
     const resourceType = req.query.resourceType || "all";
     const data = await runSimulation(`?resourceType=${resourceType}`);
+    await cacheSet(`analytics:simulate:${resourceType}`, data, 45);
     return res.json(data);
+  } catch (err) {
+    const resourceType = req.query.resourceType || "all";
+    logger.warn({ err, resourceType }, "Simulation proxy failed; serving resilient fallback");
+    const cached = await cacheGet(`analytics:simulate:${resourceType}`);
+    if (cached) {
+      return res.json({
+        ...cached,
+        degraded: true,
+        fallback: "stale_cache",
+        error: {
+          code: err.code || "GO_ENGINE_UNAVAILABLE",
+          message: "Simulation service unavailable; serving last known simulation.",
+        },
+      });
+    }
+    return res.status(err.status || 503).json({
+      resourceType,
+      scenarios: [],
+      recommendedStrategy: "balanced",
+      confidence: 0,
+      degraded: true,
+      fallback: "safe_default",
+      error: {
+        code: err.code || "GO_ENGINE_UNAVAILABLE",
+        message: err.message || "Simulation service unavailable",
+      },
+    });
+  }
+}
+
+async function getPredictionEngineHealth(req, res, next) {
+  try {
+    const force = String(req.query.force || "").toLowerCase() === "true";
+    const health = await getEngineHealth({ force });
+    const status = health.ok ? 200 : 503;
+    return res.status(status).json({
+      ok: health.ok,
+      service: "go-engine",
+      checkedAt: health.checkedAt,
+      reason: health.reason,
+    });
   } catch (err) {
     next(err);
   }
@@ -260,4 +338,5 @@ module.exports = {
   getSystemEvents,
   getPredictionData,
   getSimulationData,
+  getPredictionEngineHealth,
 };

@@ -9,8 +9,6 @@ const registerSchema = Joi.object({
   email: Joi.string().email({ tlds: false }).required(),
   password: Joi.string().min(8).max(200).required(),
   role: Joi.string().valid("user").optional(),
-  // Some clients may accidentally send this key; it's not used for registration.
-  intendedRole: Joi.string().valid("admin", "user").optional(),
 });
 
 const loginSchema = Joi.object({

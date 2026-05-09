@@ -10,7 +10,7 @@ groups:
           summary: "API Gateway high latency (p95 > 1s)"
 
       - alert: GoEngineProcessSlowP95
-        expr: histogram_quantile(0.95, rate(go_engine_process_duration_seconds_bucket[5m])) > 0.5
+        expr: histogram_quantile(0.95, sum by (le) (rate(go_engine_process_duration_seconds_bucket[5m]))) > 0.5
         for: 2m
         labels:
           severity: warning

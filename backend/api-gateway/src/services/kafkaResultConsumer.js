@@ -137,7 +137,7 @@ function emitStatus(userId, payload) {
     const io = getIO();
     io.to("user:" + String(userId)).emit("request.status", payload);
     io.to("admins").emit("request.status", payload);
-  } catch (_e) {
+  } catch {
     // sockets not ready
   }
 }

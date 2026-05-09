@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -50,8 +51,12 @@ func (h *Handler) Predict(c *gin.Context) {
 	if resourceType == "" {
 		resourceType = "all"
 	}
+	result := h.Engine.Predict(resourceType)
+	if errObj, ok := result["error"]; ok {
+		log.Printf("predict endpoint warning resourceType=%s error=%v", resourceType, errObj)
+	}
 	metrics.RequestsTotal.WithLabelValues("/predict", "200").Inc()
-	c.JSON(http.StatusOK, h.Engine.Predict(resourceType))
+	c.JSON(http.StatusOK, result)
 }
 
 func (h *Handler) Simulate(c *gin.Context) {

@@ -9,6 +9,21 @@ interface LoginPortalProps {
   role: 'admin' | 'client';
 }
 
+/** Full-bleed photo + light scrim so the background stays visible through glass UI */
+function LoginPortalBackdrop({ imageUrl }: { imageUrl: string }) {
+  return (
+    <>
+      <div
+        className="absolute inset-0 z-0 bg-cover bg-center scale-[1.02]"
+        style={{ backgroundImage: `url(${imageUrl})` }}
+        aria-hidden
+      />
+      <div className="absolute inset-0 z-[1] bg-gradient-to-br from-black/18 via-black/5 to-black/22 pointer-events-none" />
+      <div className="absolute inset-0 z-[1] bg-[radial-gradient(ellipse_88%_68%_at_50%_42%,transparent_20%,rgba(0,0,0,0.14)_100%)] pointer-events-none" />
+    </>
+  )
+}
+
 const LoginPortal: React.FC<LoginPortalProps> = ({ role }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -23,6 +38,23 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ role }) => {
 
   const is_admin = role === 'admin';
   const bgImage = is_admin ? '/admin_login.jpg' : (isLogin ? '/user_login2.webp' : '/user_signin2.jpg');
+  const portalInputClass =
+    'w-full bg-white/[0.14] border border-white/20 rounded-lg px-4 py-3 text-white text-sm placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/45 focus:border-[#D4AF37]/55 transition-all'
+  const clientLabelClass = 'block text-xs font-medium text-white/65'
+  /** Gold titles: consistent with app accent, readable on photo backgrounds */
+  const portalBrandClass =
+    'text-[10px] sm:text-[11px] font-semibold text-[#D4AF37] tracking-[0.2em] uppercase'
+  const portalHeadlineClass =
+    'text-2xl sm:text-3xl font-semibold tracking-[-0.02em] text-[#D4AF37] [text-shadow:0_1px_3px_rgba(0,0,0,0.45)]'
+  const portalSubtitleClass = 'text-white/55 text-sm mt-2.5 max-w-sm mx-auto leading-relaxed'
+  /** Glass shell: transparent fill, strong edge + blur for a proper “container” */
+  const portalShellClass =
+    'relative w-full max-w-[min(100%,26rem)] sm:max-w-[28rem] rounded-2xl border border-white/20 bg-black/22 backdrop-blur-2xl backdrop-saturate-150 shadow-[0_24px_64px_-16px_rgba(0,0,0,0.45)] ring-1 ring-inset ring-white/10 overflow-hidden'
+  const portalShellAccent =
+    'pointer-events-none absolute inset-x-10 top-0 h-px rounded-full bg-gradient-to-r from-transparent via-[#D4AF37]/85 to-transparent'
+  const portalBodyClass = 'px-7 pt-8 pb-7 sm:px-9 sm:pt-9 sm:pb-8'
+  const portalFormPanelClass =
+    'rounded-xl border border-white/18 bg-black/18 backdrop-blur-md p-6 sm:p-7 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]'
 
   useEffect(() => {
     let score = 0;
@@ -60,209 +92,259 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ role }) => {
     }
   };
 
-  // ─── ADMIN: Login-only, clean centered panel ───────────────────────────────
+  // ─── ADMIN: Login-only, centered panel ───────────────────────────────────────
   if (is_admin) {
     return (
-      <div className="relative min-h-[100dvh] w-full bg-[#030303] overflow-hidden flex items-center justify-center p-6 md:p-12">
-        <div className="absolute inset-0 bg-cover bg-center opacity-15" style={{ backgroundImage: `url(${bgImage})` }} />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#030303]/80 via-transparent to-[#030303]/90" />
-        <div className="absolute top-[-15%] right-[-5%] w-[50vw] h-[50vw] bg-yellow-500/5 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-[-15%] left-[-5%] w-[50vw] h-[50vw] bg-purple-900/8 rounded-full blur-[120px] pointer-events-none" />
+      <div className="relative isolate min-h-[100dvh] w-full overflow-hidden flex items-center justify-center p-6 md:p-12 bg-neutral-950">
+        <LoginPortalBackdrop imageUrl={bgImage} />
 
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="relative z-10 w-full max-w-md"
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-10 w-full flex justify-center px-1 sm:px-4"
         >
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-yellow-500/10 border border-yellow-500/20 mb-6">
-              <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />
-              <span className="text-[10px] font-black text-yellow-500/80 uppercase tracking-[0.3em]">Restricted Access</span>
-            </div>
-            <h1 className="text-4xl font-black tracking-tight text-white mb-2">
-              Admin <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-500 to-yellow-200">Vault</span>
-            </h1>
-            <p className="text-white/40 text-sm font-medium">Authorized personnel only. Credentials required.</p>
-          </div>
+          <div className={portalShellClass}>
+            <div className={portalShellAccent} aria-hidden />
+            <div className={`${portalBodyClass} relative z-10`}>
+              <header className="text-center pb-6 mb-6 border-b border-[#D4AF37]/20">
+                <p className={`${portalBrandClass} mb-3`}>Schedulord</p>
+                <h1 className={portalHeadlineClass}>Administrator sign in</h1>
+                <p className={portalSubtitleClass}>
+                  Sign in to manage resources, requests, and approvals.
+                </p>
+              </header>
 
-          <div className="bg-black/50 backdrop-blur-3xl border border-yellow-500/10 rounded-3xl p-8 md:p-10 shadow-[0_0_80px_rgba(168,85,247,0.12)] relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none rounded-3xl" />
-            
-            <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
-              <div className="space-y-2">
-                <label className="block text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Email Address</label>
-                <input
-                  id="admin-email"
-                  type="email"
-                  required
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-yellow-500/40 focus:bg-white/[0.07] transition-all"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="admin@company.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Password</label>
-                <input
-                  id="admin-password"
-                  type="password"
-                  required
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-yellow-500/40 focus:bg-white/[0.07] transition-all tracking-widest"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                />
-              </div>
+              <div className={`${portalFormPanelClass} relative`}>
+                <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-b from-white/[0.03] to-transparent" aria-hidden />
 
-              {error && (
-                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] font-bold tracking-wide text-center">
-                  {error}
+                <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
+                  <div className="space-y-2">
+                    <label htmlFor="admin-email" className="block text-xs font-medium text-white/65">Work email</label>
+                    <input
+                      id="admin-email"
+                      type="email"
+                      required
+                      className={portalInputClass}
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="you@organization.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="admin-password" className="block text-xs font-medium text-white/65">Password</label>
+                    <input
+                      id="admin-password"
+                      type="password"
+                      required
+                      className={portalInputClass}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                    />
+                  </div>
+
+                  {error && (
+                    <div className="p-3 rounded-lg bg-red-500/15 border border-red-400/25 text-red-200 text-sm text-center">
+                      {error}
+                    </div>
+                  )}
+
+                  <button
+                    id="admin-login-btn"
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3.5 bg-[#D4AF37] text-neutral-900 font-semibold text-sm rounded-lg hover:bg-[#e5c04a] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:ring-offset-2 focus:ring-offset-black/40 transition-colors disabled:opacity-50 flex items-center justify-center min-h-[48px]"
+                  >
+                    {loading ? <div className="w-5 h-5 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin" /> : 'Sign in'}
+                  </button>
+                </form>
+
+                <div className="mt-6 pt-6 border-t border-white/10 text-center relative z-10">
+                  <Link to="/" className="text-sm text-white/55 hover:text-white transition-colors">
+                    Back to home
+                  </Link>
                 </div>
-              )}
+              </div>
 
-              <button
-                id="admin-login-btn"
-                type="submit"
-                disabled={loading}
-                className="w-full py-4 bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-600 text-black font-black text-[11px] tracking-[0.3em] uppercase rounded-xl hover:shadow-[0_0_40px_rgba(234,179,8,0.4)] hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 flex items-center justify-center h-[52px]"
-              >
-                {loading ? <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /> : 'Authenticate'}
-              </button>
-            </form>
-
-            <div className="mt-6 pt-6 border-t border-white/5 text-center relative z-10">
-              <Link to="/" className="text-white/30 hover:text-white/60 text-[10px] uppercase tracking-[0.2em] font-bold transition-colors">
-                ← Return to Gateway
-              </Link>
+              <p className="text-center text-white/45 text-xs mt-6 leading-relaxed">
+                Need an account? Ask your organization administrator.
+              </p>
             </div>
           </div>
-
-          <p className="text-center text-white/20 text-[10px] mt-6 uppercase tracking-widest font-bold">
-            Admin accounts are provisioned by existing administrators
-          </p>
         </motion.div>
       </div>
     );
   }
 
-  // ─── CLIENT: Login + Signup with image panel ───────────────────────────────
+  // ─── CLIENT: Sign in + create account (centered card, same treatment as admin) ─
   return (
-    <div className="relative min-h-[100dvh] w-full bg-[#030303] overflow-hidden flex items-center justify-center md:p-8 lg:p-12">
-      
-      <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-yellow-500/5 rounded-full blur-[120px] pointer-events-none hidden md:block" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-purple-900/10 rounded-full blur-[120px] pointer-events-none hidden md:block" />
+    <div className="relative isolate min-h-[100dvh] w-full overflow-hidden flex items-center justify-center p-6 md:p-12 bg-neutral-950">
+      <LoginPortalBackdrop imageUrl={bgImage} />
 
-      {/* MOBILE TOP BANNER IMAGE */}
-      <div className="absolute top-0 left-0 right-0 h-[50vh] md:hidden z-0 shadow-2xl">
-        <div className="absolute inset-0 bg-cover bg-center transition-opacity duration-700" style={{ backgroundImage: `url(${bgImage})` }} />
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#030303] to-transparent" />
-      </div>
-
-      {/* LEFT SIDE: SIGNUP FORM */}
-      <div className="w-full md:w-1/2 h-full flex flex-col items-center justify-end md:justify-center pb-6 md:pb-0 absolute inset-0 md:inset-auto md:left-0 md:top-0 z-10 pointer-events-none">
-        <motion.div 
-          animate={{ opacity: !isLogin ? 1 : 0, x: !isLogin ? 0 : -30, scale: !isLogin ? 1 : 0.95 }}
-          transition={{ duration: 0.6 }}
-          className={`w-full max-w-md relative z-10 px-4 md:px-0 pointer-events-auto mt-[40vh] md:mt-0 ${isLogin ? 'pointer-events-none' : ''}`}
-        >
-          <div className="bg-black/60 md:bg-black/40 backdrop-blur-3xl border border-purple-500/30 md:border-purple-500/20 rounded-[2rem] p-8 md:p-10 lg:p-14 shadow-[0_0_80px_rgba(168,85,247,0.4)] md:shadow-[0_0_80px_rgba(168,85,247,0.25)] relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none" />
-            
-            <div className="mb-10 text-center relative z-10">
-              <h1 className="text-3xl font-light tracking-[0.3em] uppercase text-white drop-shadow-md">
-                <span className="font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-500 to-yellow-200 drop-shadow-[0_0_15px_rgba(234,179,8,0.3)]">
-                  User
-                </span> Signup
+      <motion.div
+        key={isLogin ? 'client-login' : 'client-signup'}
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="relative z-10 w-full flex justify-center px-1 sm:px-4"
+      >
+        <div className={portalShellClass}>
+          <div className={portalShellAccent} aria-hidden />
+          <div className={`${portalBodyClass} relative z-10`}>
+            <header className="text-center pb-6 mb-6 border-b border-[#D4AF37]/20">
+              <p className={`${portalBrandClass} mb-3`}>Schedulord</p>
+              <h1 className={portalHeadlineClass}>
+                {isLogin ? 'Sign in' : 'Create account'}
               </h1>
-            </div>
+              <p className={portalSubtitleClass}>
+                {isLogin
+                  ? 'Use your work email and password to continue.'
+                  : 'Register to submit requests and follow allocation status.'}
+              </p>
+            </header>
 
-            <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8 relative z-10">
-              <div className="relative">
-                <label className="block text-[8px] font-black text-white/60 md:text-[#666] uppercase tracking-[0.3em] mb-2">Name</label>
-                <input id="client-signup-name" type="text" required className="w-full bg-transparent border-b border-white/20 md:border-white/10 px-2 py-3 text-lg text-white focus:outline-none focus:border-purple-400 transition-colors font-light placeholder:text-white/20 md:placeholder:text-white/10" value={name} onChange={e => setName(e.target.value)} placeholder="Enter Name" />
+            <div className={`${portalFormPanelClass} relative`}>
+              <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-b from-white/[0.03] to-transparent" aria-hidden />
+
+          {isLogin ? (
+            <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
+              <div className="space-y-2">
+                <label htmlFor="client-login-email" className={clientLabelClass}>Email</label>
+                <input
+                  id="client-login-email"
+                  type="email"
+                  required
+                  className={portalInputClass}
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                />
               </div>
-              <div className="relative">
-                <label className="block text-[8px] font-black text-white/60 md:text-[#666] uppercase tracking-[0.3em] mb-2">Email Address</label>
-                <input id="client-signup-email" type="email" required className="w-full bg-transparent border-b border-white/20 md:border-white/10 px-2 py-3 text-lg text-white focus:outline-none focus:border-purple-400 transition-colors font-light placeholder:text-white/20 md:placeholder:text-white/10" value={email} onChange={e => setEmail(e.target.value)} placeholder="Enter Email" />
+              <div className="space-y-2">
+                <label htmlFor="client-login-password" className={clientLabelClass}>Password</label>
+                <input
+                  id="client-login-password"
+                  type="password"
+                  required
+                  className={portalInputClass}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                />
               </div>
-              <div>
-                <label className="block text-[8px] font-black text-white/60 md:text-[#666] uppercase tracking-[0.3em] mb-2">Password</label>
-                <input id="client-signup-password" type="password" required className="w-full bg-transparent border-b border-white/20 md:border-white/10 px-2 py-3 text-lg text-white focus:outline-none focus:border-purple-400 transition-colors font-light mb-4 placeholder:text-white/20 md:placeholder:text-white/10 tracking-[0.2em]" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" />
-                <div className="flex gap-1 h-[2px] w-full max-w-[150px]">
-                  {[1, 2, 3, 4].map(i => (
-                    <div key={i} className={`flex-1 rounded-full transition-colors ${i <= strength ? (strength > 2 ? 'bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.8)]' : 'bg-purple-500/50') : 'bg-white/10 md:bg-white/5'}`} />
+              {error && (
+                <div className="p-3 rounded-lg bg-red-500/15 border border-red-400/25 text-red-200 text-sm text-center">
+                  {error}
+                </div>
+              )}
+              <button
+                id="client-login-btn"
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 bg-[#D4AF37] text-neutral-900 font-semibold text-sm rounded-lg hover:bg-[#e5c04a] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:ring-offset-2 focus:ring-offset-black/40 transition-colors disabled:opacity-50 flex items-center justify-center min-h-[48px]"
+              >
+                {loading ? <div className="w-5 h-5 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin" /> : 'Sign in'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
+              <div className="space-y-2">
+                <label htmlFor="client-signup-name" className={clientLabelClass}>Full name</label>
+                <input
+                  id="client-signup-name"
+                  type="text"
+                  required
+                  className={portalInputClass}
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Jane Doe"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="client-signup-email" className={clientLabelClass}>Email</label>
+                <input
+                  id="client-signup-email"
+                  type="email"
+                  required
+                  className={portalInputClass}
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="client-signup-password" className={clientLabelClass}>Password</label>
+                <input
+                  id="client-signup-password"
+                  type="password"
+                  required
+                  className={portalInputClass}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Choose a strong password"
+                />
+                <div className="flex gap-1.5 h-1 w-full max-w-[180px] pt-1">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className={`flex-1 rounded-full transition-colors ${
+                        i <= strength
+                          ? strength > 2
+                            ? 'bg-[#D4AF37]'
+                            : 'bg-[#D4AF37]/55'
+                          : 'bg-white/15'
+                      }`}
+                    />
                   ))}
                 </div>
               </div>
-              {error && !isLogin && <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-[9px] uppercase font-bold tracking-[0.2em] text-center">{error}</div>}
-              
-              <button id="client-signup-btn" type="submit" disabled={loading} className="w-full py-4 bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-600 text-black shadow-[0_0_20px_rgba(234,179,8,0.3)] hover:shadow-[0_0_35px_rgba(234,179,8,0.5)] border border-yellow-300/50 hover:-translate-y-1 rounded-xl text-[10px] font-black tracking-[0.4em] uppercase disabled:opacity-50 mt-8 transition-all duration-300 flex justify-center items-center h-[56px]">
-                {loading ? <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /> : 'Create Account'}
+              {error && (
+                <div className="p-3 rounded-lg bg-red-500/15 border border-red-400/25 text-red-200 text-sm text-center">
+                  {error}
+                </div>
+              )}
+              <button
+                id="client-signup-btn"
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 bg-[#D4AF37] text-neutral-900 font-semibold text-sm rounded-lg hover:bg-[#e5c04a] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:ring-offset-2 focus:ring-offset-black/40 transition-colors disabled:opacity-50 flex items-center justify-center min-h-[48px]"
+              >
+                {loading ? <div className="w-5 h-5 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin" /> : 'Create account'}
               </button>
             </form>
+          )}
 
-            <div className="mt-8 md:mt-10 text-center relative z-10 pt-6 border-t border-white/10 md:border-white/5">
-              <button type="button" onClick={() => { setIsLogin(true); setError(''); }} className="text-white/80 md:text-[#555] hover:text-yellow-500 text-[8px] font-black uppercase tracking-[0.3em] transition-colors">Return to Login →</button>
+              <div className="mt-6 pt-6 border-t border-white/10 text-center relative z-10 space-y-3">
+                {isLogin ? (
+                  <button
+                    type="button"
+                    onClick={() => { setIsLogin(false); setError('') }}
+                    className="text-sm text-white/80 hover:text-white transition-colors"
+                  >
+                    Create an account
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { setIsLogin(true); setError('') }}
+                    className="text-sm text-white/80 hover:text-white transition-colors"
+                  >
+                    Already have an account? Sign in
+                  </button>
+                )}
+                <div>
+                  <Link to="/" className="text-sm text-white/55 hover:text-white transition-colors">
+                    Back to home
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
-        </motion.div>
-      </div>
-
-      {/* RIGHT SIDE: LOGIN FORM */}
-      <div className="w-full md:w-1/2 h-full flex flex-col items-center justify-end md:justify-center pb-6 md:pb-0 absolute inset-0 md:inset-auto md:right-0 md:top-0 z-10 pointer-events-none">
-        <motion.div 
-          animate={{ opacity: isLogin ? 1 : 0, x: isLogin ? 0 : 30, scale: isLogin ? 1 : 0.95 }}
-          transition={{ duration: 0.6 }}
-          className={`w-full max-w-md relative z-10 px-4 md:px-0 pointer-events-auto mt-[40vh] md:mt-0 ${!isLogin ? 'pointer-events-none' : ''}`}
-        >
-          <div className="bg-black/60 md:bg-black/40 backdrop-blur-3xl border border-purple-500/30 md:border-purple-500/20 rounded-[2rem] p-8 md:p-10 lg:p-14 shadow-[0_0_80px_rgba(168,85,247,0.3)] md:shadow-[0_0_80px_rgba(168,85,247,0.25)] relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none" />
-            
-            <div className="mb-10 text-center relative z-10">
-              <h1 className="text-3xl font-light tracking-[0.3em] uppercase text-white drop-shadow-md">
-                <span className="font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-500 to-yellow-200 drop-shadow-[0_0_15px_rgba(234,179,8,0.3)]">
-                  User
-                </span> Login
-              </h1>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8 relative z-10">
-              <div className="relative">
-                <label className="block text-[8px] font-black text-white/50 md:text-[#666] uppercase tracking-[0.3em] mb-2">Email Address</label>
-                <input id="client-login-email" type="email" required className="w-full bg-transparent border-b border-white/20 md:border-white/10 px-2 py-3 text-lg text-white focus:outline-none focus:border-purple-400 transition-colors font-light placeholder:text-white/20 md:placeholder:text-white/10" value={email} onChange={e => setEmail(e.target.value)} placeholder="Enter Email" />
-              </div>
-              <div>
-                <label className="block text-[8px] font-black text-white/50 md:text-[#666] uppercase tracking-[0.3em] mb-2">Password</label>
-                <input id="client-login-password" type="password" required className="w-full bg-transparent border-b border-white/20 md:border-white/10 px-2 py-3 text-lg text-white focus:outline-none focus:border-purple-400 transition-colors font-light mb-4 placeholder:text-white/20 md:placeholder:text-white/10 tracking-[0.2em]" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" />
-              </div>
-              {error && isLogin && <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-[9px] uppercase font-bold tracking-[0.2em] text-center">{error}</div>}
-              
-              <button id="client-login-btn" type="submit" disabled={loading} className="w-full py-4 bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-600 text-black shadow-[0_0_20px_rgba(234,179,8,0.3)] hover:shadow-[0_0_35px_rgba(234,179,8,0.5)] border border-yellow-300/50 hover:-translate-y-1 rounded-xl text-[10px] font-black tracking-[0.4em] uppercase disabled:opacity-50 mt-8 transition-all duration-300 flex justify-center items-center h-[56px]">
-                {loading ? <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /> : 'Login'}
-              </button>
-            </form>
-
-            <div className="mt-8 md:mt-10 text-center relative z-10 pt-6 border-t border-white/10 md:border-white/5">
-              <button type="button" onClick={() => { setIsLogin(false); setError(''); }} className="text-white/60 md:text-[#555] hover:text-yellow-500 text-[8px] font-black uppercase tracking-[0.3em] transition-colors">← Create Account</button>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* DESKTOP FLOATING IMAGE OVERLAY */}
-      <motion.div 
-        animate={{ x: isLogin ? '0%' : '100%' }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="hidden md:block absolute top-8 bottom-8 left-8 w-[calc(50%-2rem)] z-20 rounded-[2.5rem] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.9)] border border-white/[0.05]"
-      >
-        <div 
-          className="absolute inset-0 bg-cover bg-center transition-opacity duration-700" 
-          style={{ backgroundImage: `url(${bgImage})` }}
-        />
+        </div>
       </motion.div>
     </div>
-  );
+  )
 };
 
 export default LoginPortal;

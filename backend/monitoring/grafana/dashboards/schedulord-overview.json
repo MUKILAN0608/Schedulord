@@ -3,7 +3,7 @@
   "title": "Schedulord Enterprise Observability",
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 4,
   "refresh": "10s",
   "time": {
     "from": "now-30m",
@@ -13,77 +13,200 @@
     {
       "type": "stat",
       "title": "API Gateway Availability",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
-      "targets": [{ "expr": "max(up{job=\"api-gateway\"})", "legendFormat": "up" }]
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "max(up{job=\"api-gateway\"})",
+          "legendFormat": "up",
+          "instant": true,
+          "range": false
+        }
+      ]
     },
     {
       "type": "stat",
       "title": "Go Engine Availability",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
-      "targets": [{ "expr": "max(up{job=\"go-engine\"})", "legendFormat": "up" }]
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "max(up{job=\"go-engine\"})",
+          "legendFormat": "up",
+          "instant": true,
+          "range": false
+        }
+      ]
     },
     {
       "type": "stat",
       "title": "Active WebSocket Connections",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
-      "targets": [{ "expr": "schedulord_websocket_connections", "legendFormat": "connections" }]
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "schedulord_websocket_connections",
+          "legendFormat": "connections",
+          "instant": true,
+          "range": false
+        }
+      ]
     },
     {
       "type": "stat",
       "title": "Kafka Publish Success / sec",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
-      "targets": [{ "expr": "sum(rate(schedulord_kafka_events_published_total{status=\"success\"}[5m]))", "legendFormat": "success" }]
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(schedulord_kafka_events_published_total{status=\"success\"}[5m])) or vector(0)",
+          "legendFormat": "success",
+          "instant": true,
+          "range": false
+        }
+      ]
     },
     {
       "type": "timeseries",
       "title": "API Throughput by Method (RPS)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 0, "y": 4, "w": 12, "h": 7 },
-      "targets": [{ "expr": "sum by (method) (rate(node_http_requests_total[1m]))", "legendFormat": "{{method}}" }]
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (method) (rate(node_http_requests_total[5m]))",
+          "legendFormat": "{{method}}",
+          "interval": "10s",
+          "instant": false,
+          "range": true
+        }
+      ]
     },
     {
       "type": "timeseries",
       "title": "API Latency (p95 seconds)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 12, "y": 4, "w": 12, "h": 7 },
-      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le) (rate(node_http_request_duration_seconds_bucket[5m])))", "legendFormat": "api p95" }]
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(node_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "api p95",
+          "interval": "10s",
+          "instant": false,
+          "range": true
+        }
+      ]
     },
     {
       "type": "timeseries",
       "title": "Go /process Latency (p95 seconds)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 0, "y": 11, "w": 12, "h": 7 },
-      "targets": [{ "expr": "histogram_quantile(0.95, rate(go_engine_process_duration_seconds_bucket[5m]))", "legendFormat": "process p95" }]
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(go_engine_process_duration_seconds_bucket[5m])))",
+          "legendFormat": "process p95",
+          "interval": "10s",
+          "instant": false,
+          "range": true
+        }
+      ]
     },
     {
       "type": "timeseries",
-      "title": "Go Engine Requests by Endpoint",
+      "title": "Go Engine Requests by route",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 12, "y": 11, "w": 12, "h": 7 },
-      "targets": [{ "expr": "sum by (endpoint) (rate(go_engine_requests_total[1m]))", "legendFormat": "{{endpoint}}" }]
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (route) (rate(go_engine_requests_total[5m]))",
+          "legendFormat": "{{route}}",
+          "interval": "10s",
+          "instant": false,
+          "range": true
+        }
+      ]
     },
     {
       "type": "timeseries",
       "title": "Allocation Outcomes (rate)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 0, "y": 18, "w": 12, "h": 7 },
-      "targets": [{ "expr": "sum by (status) (rate(schedulord_allocations_total[5m]))", "legendFormat": "{{status}}" }]
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (status) (rate(schedulord_allocations_total[5m]))",
+          "legendFormat": "{{status}}",
+          "interval": "10s",
+          "instant": false,
+          "range": true
+        }
+      ]
     },
     {
       "type": "timeseries",
       "title": "Allocation Strategy Mix (rate)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 12, "y": 18, "w": 12, "h": 7 },
-      "targets": [{ "expr": "sum by (strategy) (rate(schedulord_allocations_total[5m]))", "legendFormat": "{{strategy}}" }]
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (strategy) (rate(schedulord_allocations_total[5m]))",
+          "legendFormat": "{{strategy}}",
+          "interval": "10s",
+          "instant": false,
+          "range": true
+        }
+      ]
     },
     {
       "type": "timeseries",
       "title": "Kafka Fallback Events (risk)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 0, "y": 25, "w": 12, "h": 7 },
-      "targets": [{ "expr": "sum(rate(schedulord_kafka_events_published_total{status=\"fallback\"}[5m]))", "legendFormat": "fallback/sec" }]
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(schedulord_kafka_events_published_total{status=\"fallback\"}[5m])) or on() vector(0)",
+          "legendFormat": "fallback/sec",
+          "interval": "10s",
+          "instant": false,
+          "range": true
+        }
+      ]
     },
     {
       "type": "timeseries",
       "title": "API Error Rate (5xx ratio)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "x": 12, "y": 25, "w": 12, "h": 7 },
       "targets": [
         {
-          "expr": "sum(rate(node_http_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(node_http_requests_total[5m])), 0.0001)",
-          "legendFormat": "5xx ratio"
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(node_http_requests_total{status_code=~\"5..\"}[5m])) / clamp_min(sum(rate(node_http_requests_total[5m])), 0.0001)",
+          "legendFormat": "5xx ratio",
+          "interval": "10s",
+          "instant": false,
+          "range": true
         }
       ]
     }

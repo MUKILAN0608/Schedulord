@@ -8,6 +8,7 @@ const {
   getSystemEvents,
   getPredictionData,
   getSimulationData,
+  getPredictionEngineHealth,
 } = require("../controllers/analyticsController");
 
 const router = express.Router();
@@ -32,5 +33,8 @@ router.get("/predict", authenticateJWT, getPredictionData);
 
 // Simulation data from Go engine
 router.get("/simulate", authenticateJWT, getSimulationData);
+
+// Go engine prediction/simulation health
+router.get("/engine-health", authenticateJWT, requireRole("admin"), getPredictionEngineHealth);
 
 module.exports = router;

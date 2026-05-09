@@ -17,10 +17,17 @@ This monitoring stack is production-oriented and includes:
 ## Start Monitoring
 
 1. Start Docker Desktop.
-2. Run:
+2. Run (Prometheus must reach **api-gateway** and **go-engine** — use the full set if dashboards stay empty):
 
 ```bash
-docker compose up -d prometheus grafana
+docker compose up -d api-gateway go-engine prometheus grafana
+```
+
+After editing `prometheus.yml`, dashboard JSON, or Grafana provisioning, reload configs:
+
+```bash
+docker compose up -d --force-recreate prometheus
+docker compose restart grafana
 ```
 
 3. Open:
@@ -42,7 +49,7 @@ In Grafana, open folder **Schedulord** and select:
 
 Prometheus should show these targets as **UP**:
 
-- `api-gateway:8080/metrics`
+- `api-gateway:8081/metrics`
 - `go-engine:9090/metrics`
 
 ## Alerts Included

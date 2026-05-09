@@ -1,150 +1,466 @@
-# Schedulord — Enterprise Resource Allocation & Decision Intelligence Platform
+# 🚀 Schedulord — Enterprise Resource Orchestration Platform
 
-Distributed, admin-gated GPU/CPU (and broader) allocation with an event-driven backbone, Redis-backed caching, a Go core engine that runs a **dataset-trained** AI support pipeline end-to-end in Go (no Python), and operational monitoring via Prometheus and Grafana.
+![Platform](https://img.shields.io/badge/Platform-Distributed%20AI%20Orchestration-0f172a?style=for-the-badge)
+![Frontend](https://img.shields.io/badge/Frontend-React%20%7C%20TypeScript-2563eb?style=for-the-badge)
+![Backend](https://img.shields.io/badge/Backend-Node.js%20%7C%20Go-059669?style=for-the-badge)
+![Messaging](https://img.shields.io/badge/Messaging-Kafka-f97316?style=for-the-badge)
+![Database](https://img.shields.io/badge/Data-MongoDB%20%7C%20Redis-16a34a?style=for-the-badge)
+![Observability](https://img.shields.io/badge/Observability-Prometheus%20%7C%20Grafana-7c3aed?style=for-the-badge)
+![License](https://img.shields.io/badge/License-Project%20Defined-6b7280?style=for-the-badge)
 
-## Architecture
+<p align="left">
+  <strong>AI-assisted allocation</strong> for GPU/CPU workloads with approval workflows, realtime visibility, and production-ready observability.
+</p>
 
-```
+---
+
+## ✨ At a Glance
+
+Schedulord is a microservices platform that helps teams allocate compute resources safely and intelligently:
+
+- 🧾 Users submit resource requests.
+- 👩‍💼 Admins approve or reject requests with AI guidance.
+- 🧠 Go Engine scores, predicts, and simulates allocation strategies.
+- 📡 Events stream via Kafka, state persists in MongoDB, hot paths cache in Redis.
+- 📊 Prometheus + Grafana provide operational transparency.
+
+---
+
+## 📚 Table of Contents
+
+1. [Project Overview](#-project-overview)
+2. [System Architecture](#-system-architecture)
+3. [Tech Stack](#-tech-stack)
+4. [AI/ML Models and Deep Learning Library](#-aiml-models-and-deep-learning-library)
+5. [User Roles and Permissions](#-user-roles-and-permissions)
+6. [API Endpoints](#-api-endpoints)
+7. [Database Schema (Collections)](#-database-schema-collections)
+8. [Demo Access Accounts](#-demo-access-accounts)
+9. [Live Links](#-live-links)
+10. [Quick Start](#-quick-start)
+11. [Production Readiness Checklist](#-production-readiness-checklist)
+
+---
+
+## 📌 Project Overview
+
+Schedulord is built for organizations that need **controlled, auditable, and intelligent** resource distribution.
+
+Core capabilities:
+
+- Role-based request lifecycle (create → review → approve/reject → allocate)
+- AI-assisted decision support for prediction and simulation
+- Resilient backend flow with fallback behavior
+- Realtime updates and observability for operators
+
+Typical workflow:
+
+1. Client submits request (`resourceType`, `quantity`, `priority`, reviewer admin).
+2. Request enters admin review queue.
+3. On approval, processing pipeline triggers allocation logic.
+4. Allocation + prediction + simulation outputs are persisted and surfaced in UI.
+5. Metrics/events expose platform health and performance.
+
+---
+
+## 🏗️ System Architecture
+
+```text
 Frontend (React + TypeScript)
-       ↓
-Node.js API Gateway (REST, JWT/RBAC, WebSockets, Kafka producer)
-       ↓
-Apache Kafka (allocation request / result topics)
-       ↓
-Go Core Engine (Kafka consumer + allocation + aisupport ML pipeline)
-       ↓
-MongoDB (persistent state) + Redis (cache layer)
-       ↓
-WebSocket broadcasts → realtime UI updates
+        ↓
+API Gateway (Node.js + Express + JWT/RBAC + WebSockets)
+        ↓
+Kafka (request/result events)
+        ↓
+Go Engine (allocation + prediction + simulation)
+        ↓
+MongoDB (persistent state) + Redis (cache)
+        ↓
+Prometheus / Grafana (monitoring + dashboards)
 ```
 
-## Tech Stack
+### Rendered Architecture Diagram
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | React, TypeScript, Tailwind CSS, Framer Motion, Recharts, Socket.IO client, Redux Toolkit, Zod (client validation where used), Three.js (@react-three/fiber, drei) |
-| API Gateway | Node.js, Express, JWT + RBAC, Mongoose, KafkaJS (non-fatal producer failures with fallback paths), Redis (ioredis), Zod validation, Morgan request logging |
-| Core Engine | Go (Gin), Kafka consumer/producer patterns, aisupport ML (trained on repo CSV), greedy allocation orchestration |
-| Streaming | Apache Kafka |
-| Database | MongoDB |
-| Cache | Redis |
-| Monitoring | Prometheus, Grafana (`backend/monitoring/`) |
-| Delivery | Docker, Docker Compose |
+```mermaid
+flowchart TD
+    U[👤 Client / Admin Users] --> F[🌐 Frontend<br/>React + TypeScript]
+    F --> G[🛡️ API Gateway<br/>Node.js + Express + JWT/RBAC]
 
-## Repository layout
+    G --> K[(📨 Kafka Topics<br/>requests / results)]
+    K --> E[⚙️ Go Engine<br/>Allocation + Prediction + Simulation]
+    E --> K
 
-```
-schedulord/
-├── frontend/                   # Operator & client UI
-├── backend/
-│   ├── api-gateway/           # Express API, Kafka producer, sockets
-│   ├── go-engine/             # Allocation engine + aisupport package
-│   ├── kafka/                 # Broker-oriented config/scripts (as applicable)
-│   └── monitoring/            # Prometheus, Grafana dashboards, alerts, runbook
-├── docker/
-├── docker-compose.yml
-├── schedulord_research_dataset_12000.csv   # Training/eval dataset for Go aisupport models
-└── README.md
+    G --> M[(🗄️ MongoDB<br/>Users / Requests / Allocations / Events)]
+    G --> R[(⚡ Redis<br/>Cache Layer)]
+    G --> S[🔌 WebSocket Events]
+    S --> F
+
+    G --> P[📈 Prometheus]
+    E --> P
+    P --> GF[📊 Grafana Dashboards]
 ```
 
-## Quick start (Docker Compose)
+---
+
+## 🧰 Tech Stack
+
+### Frontend
+
+- React 19 + TypeScript
+- Vite
+- Tailwind CSS
+- Redux Toolkit
+- React Router
+- Recharts
+- Framer Motion
+- Three.js (`@react-three/fiber`, `@react-three/drei`)
+- Socket.IO client
+
+### API Gateway
+
+- Node.js + Express
+- JWT authentication + RBAC middleware
+- Joi + Zod request validation
+- MongoDB via Mongoose
+- Redis via ioredis
+- Kafka via KafkaJS
+- Socket.IO server
+- Morgan + Pino logging
+- Prometheus metrics (`prom-client`)
+
+### Go Engine
+
+- Go + Gin
+- Allocation decision service
+- Prediction and simulation handlers
+- Prometheus exporter endpoints
+- Kafka integration (consumer/producer patterns)
+
+### Infrastructure
+
+- Docker + Docker Compose
+- Kafka + Zookeeper
+- Prometheus
+- Grafana
+
+---
+
+## 🧠 AI/ML Models and Deep Learning Library
+
+Schedulord uses a **hybrid AI support pipeline** in:
+
+- `backend/go-engine/internal/aisupport`
+
+Training dataset:
+
+- `schedulord_research_dataset_12000.csv`
+
+### Model pipeline
+
+1. **Logistic Regression** (feasibility score)  
+   - Estimates probability that a request can be served now.
+
+2. **Tree/Forest-style Predictor** (load score)  
+   - Estimates near-term load pressure from request + system context.
+
+3. **Neural Priority Scorer** (priority confidence)  
+   - Small feed-forward neural network used in the composite decision output.
+
+### Deep learning library used
+
+- ✅ `gorgonia.org/gorgonia`
+- ✅ `gorgonia.org/tensor`
+
+These are used for the neural training/inference components in the Go ML pipeline.
+
+### Model outputs exposed via API
+
+Prediction and decision APIs surface fields such as:
+
+- `feasibilityScore`
+- `predictedLoad`
+- `priorityScore`
+- `aiScore`
+- `recommendationScore`
+- `decisionLog` (contains model trace metadata like `model_source=trained_dataset`)
+
+### Training behavior
+
+- Engine startup is dataset-driven and strict.
+- If model training cannot initialize correctly, startup is designed to fail fast instead of silently degrading quality.
+
+---
+
+## 👥 User Roles and Permissions
+
+Roles are enforced through JWT + `authenticateJWT` + `requireRole(...)`.
+
+### `user` (Client)
+
+- Login through client portal
+- Create requests
+- View own requests and outcomes
+- Cancel allowed requests
+- Access standard dashboard/resources/decision screens
+
+### `admin`
+
+- Login through admin portal
+- Everything in `user`, plus:
+  - Manage users
+  - Manage resources
+  - Approve/reject requests
+  - Trigger manual allocation
+  - Access admin decision queue/history
+  - Access privileged analytics endpoints
+  - Run administrative reset/maintenance endpoints
+
+Security behavior:
+
+- `401` for missing/invalid token
+- `403` for role mismatch or forbidden actions
+
+---
+
+## 🔌 API Endpoints
+
+Base URL: `http://localhost:8080/api`
+
+### Health & Metrics
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/health` (outside `/api`) | No | API gateway health check |
+| GET | `/metrics` (outside `/api`) | No | API gateway Prometheus metrics |
+
+### Auth
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/auth/register` | No | Register client user |
+| POST | `/auth/login` | No | Login with `intendedRole` |
+
+### Users
+
+| Method | Path | Auth | Role | Description |
+|---|---|---|---|---|
+| GET | `/users/me` | Yes | user/admin | Current user |
+| GET | `/users/admins` | Yes | user/admin | Reviewer admin list |
+| GET | `/users` | Yes | admin | List users |
+| POST | `/users` | Yes | admin | Create user/admin |
+| PATCH | `/users/:id` | Yes | admin | Update role/status |
+
+### Resources
+
+| Method | Path | Auth | Role | Description |
+|---|---|---|---|---|
+| GET | `/resources` | Yes | user/admin | List resources |
+| GET | `/resources/:id` | Yes | user/admin | Resource details |
+| POST | `/resources` | Yes | admin | Create resource |
+| PATCH | `/resources/:id` | Yes | admin | Update resource |
+| DELETE | `/resources/:id` | Yes | admin | Delete resource |
+
+### Requests
+
+| Method | Path | Auth | Role | Description |
+|---|---|---|---|---|
+| GET | `/requests` | Yes | user/admin | List requests (scoped) |
+| GET | `/requests/decisions/me` | Yes | admin | Admin decision queue/history |
+| GET | `/requests/:id` | Yes | user/admin | Request detail |
+| POST | `/requests` | Yes | user | Create request |
+| POST | `/requests/:id/cancel` | Yes | user/admin | Cancel request |
+| POST | `/requests/:id/allocate` | Yes | admin | Manual allocation |
+| POST | `/requests/:id/approve` | Yes | admin | Approve request |
+| POST | `/requests/:id/reject` | Yes | admin | Reject request |
+| POST | `/requests/clear` | Yes | admin | Clear requests (admin utility) |
+
+### Analytics
+
+| Method | Path | Auth | Role | Description |
+|---|---|---|---|---|
+| GET | `/analytics/dashboard` | Yes | user/admin | Dashboard stats |
+| GET | `/analytics/utilization` | Yes | user/admin | Utilization metrics |
+| GET | `/analytics/demand-trends` | Yes | admin | Demand trend series |
+| GET | `/analytics/allocations` | Yes | user/admin | Allocation metrics |
+| GET | `/analytics/events` | Yes | user/admin | Event feed |
+| GET | `/analytics/predict` | Yes | user/admin | Prediction proxy |
+| GET | `/analytics/simulate` | Yes | user/admin | Simulation proxy |
+| GET | `/analytics/engine-health` | Yes | admin | Go engine health via gateway |
+
+### Go Engine Direct Endpoints
+
+Base URL (direct): usually `http://localhost:9095` locally
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/healthz` | Go engine health |
+| POST | `/process` | Process allocation payload |
+| GET | `/predict` | Prediction output |
+| GET | `/simulate` | Simulation output |
+| GET | `/learning/stats` | Learning stats |
+| GET | `/metrics` | Prometheus metrics |
+
+---
+
+## 🗄️ Database Schema (Collections)
+
+### `users`
+- `name: String`
+- `email: String` (unique, indexed)
+- `passwordHash: String` (hidden by default)
+- `role: "admin" | "user"` (indexed)
+- `isActive: Boolean` (indexed)
+- timestamps
+
+### `resources`
+- `name: String` (indexed)
+- `type: String` (indexed)
+- `capacity: Number`
+- `metadata: Object`
+- `isAvailable: Boolean` (indexed)
+- timestamps
+
+### `requests`
+- `userId: ObjectId<User>` (indexed)
+- `reviewerAdminId: ObjectId<User>` (indexed)
+- `resourceType: String` (indexed)
+- `preferredResourceId: ObjectId<Resource> | null` (indexed)
+- `quantity: Number`
+- `priority: Number` (0..100, indexed)
+- `status: pending | processing | allocated | rejected | cancelled` (indexed)
+- `reason: String`
+- `adminApproved: Boolean` (indexed)
+- `kafkaApprovedPublished: Boolean` (indexed)
+- lease fields: `processingBy`, `processingLeaseUntil`, `attempts`, `lastAttemptAt`
+- Kafka tracking: `kafkaOffset`, `kafkaPartition`
+- `idempotencyKey: String` (partial unique index with `userId`)
+- timestamps
+
+### `allocations`
+- `requestId: ObjectId<Request>` (unique index)
+- `resourceId: ObjectId<Resource>` (indexed)
+- `decidedBy: "go-engine" | "manual"` (indexed)
+- `score: Number`
+- `confidence: Number` (0..1)
+- `strategy: String`
+- `alternatives: Array`
+- `details: Object`
+- timestamps
+
+### `systemevents`
+- `type: allocation | conflict | prediction | system | error | simulation` (indexed)
+- `severity: info | warning | error | critical` (indexed)
+- `title: String`
+- `message: String`
+- `metadata: Object`
+- `requestId: ObjectId<Request>` (indexed)
+- `resourceId: ObjectId<Resource>` (indexed)
+- `userId: ObjectId<User>` (indexed)
+- timestamps
+- TTL index on `createdAt` (~30 days)
+
+### `auditlogs`
+- `actorUserId: ObjectId<User>` (indexed)
+- `action: String` (indexed)
+- `entityType: String` (indexed)
+- `entityId: String` (indexed)
+- `ip: String`
+- `userAgent: String`
+- `details: Object`
+- timestamps
+
+---
+
+## 🔐 Demo Access Accounts
+
+### Bootstrap Admin (auto-seeded)
+
+If not already present, the API gateway seeds:
+
+- **Email:** `admin@schedulord.local`
+- **Password:** `ChangeMe123!`
+- **Role:** `admin`
+
+Configurable with:
+
+- `BOOTSTRAP_ADMIN_EMAIL`
+- `BOOTSTRAP_ADMIN_PASSWORD`
+
+### Demo Client/User
+
+No guaranteed pre-seeded client is enforced by default.
+
+Create one via:
+
+- `POST /api/auth/register`
+
+Then login using:
+
+- `/login/client` (UI), or
+- `POST /api/auth/login` with `intendedRole: "user"`
+
+---
+
+## ✅ Completion Status
+
+- **System Completed:** Schedulord core components implemented and pushed to GitHub on 2026-05-09.
+- **Repository:** https://github.com/MUKILAN0608/Schedulord
+
+
+> ⚠️ Rotate demo credentials before any real deployment.
+
+---
+
+## 🌐 Live Links
+
+### Local Development
+
+- Frontend: [http://localhost:3001](http://localhost:3001)
+- API Gateway: [http://localhost:8080](http://localhost:8080)
+- API Metrics: [http://localhost:8080/metrics](http://localhost:8080/metrics)
+- Go Engine Health: [http://localhost:9095/healthz](http://localhost:9095/healthz)
+- Go Engine Metrics: [http://localhost:9095/metrics](http://localhost:9095/metrics)
+- Grafana: [http://localhost:3000](http://localhost:3000)
+- Prometheus: [http://localhost:9091](http://localhost:9091)
+
+### Docker Compose Defaults
+
+- API Gateway: [http://localhost:8081](http://localhost:8081)
+- Go Engine: [http://localhost:9090](http://localhost:9090)
+
+> Use your actual mapped ports if they differ by environment.
+
+### Production (replace placeholders)
+
+- Frontend: `https://<your-frontend-domain>`
+- API: `https://<your-api-domain>`
+- Grafana: `https://<your-grafana-domain>`
+- Prometheus: `https://<your-prometheus-domain>`
+
+---
+
+## ⚡ Quick Start
 
 ```bash
 docker compose up --build
 ```
 
-Typical local URLs (see `docker-compose.yml` if ports differ in your overlay):
+Manual local start:
 
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:3001 |
-| API Gateway | http://localhost:8080 |
-| Go engine metrics/health | (host port mapped in compose — often 9090) |
-| Grafana | http://localhost:3000 (`admin` / `admin` unless overridden) |
-| Prometheus | http://localhost:9091 |
-
-## Features — completed vs pending
-
-Below is an honest rollup of **what ships in this repository today** versus **remaining gaps / operational caveats**.
-
-### ✅ Completed / implemented (repository)
-
-**Platform & workflows**
-
-- **Microservices topology**: Separate Node API Gateway and Go allocation engine wired through Kafka (`schedulord` topics) with Mongo persistence and Redis cache usage for hot read paths (e.g. resources).
-- **Strict admin gate on allocation automation**: Allocation engine processing targets **admin-approved** work items; Kafka publish occurs on explicit approval pathways (requests are **not** auto-streamed into the engine as approvals).
-- **Client resource catalog**: Operators can inspect available inventory and associate a **preferred resource** when creating a request.
-- **Approver routing**: Clients designate the **reviewing admin** (`reviewerAdminId`) for a request lifecycle.
-- **Admin-only destructive actions**: Reject semantics are constrained to privilege rules (assigned admin rejects; non-admin impersonation prevented by RBAC on routes).
-- **Rejection reasons**: Persisted rejection reasons surfaced in the UI with deliberate placement (**reason above the rejection bar** on relevant request views).
-
-**Isolation & tenancy**
-
-- **Role-scoped dashboards and navigation**: Admin vs client navigation and pages are differentiated (examples: Admin Resources, Admin Request Decisions, dedicated admin tooling vs client flows).
-- **Request visibility controls**: Listing routes align with reviewer assignment for admin-facing queues/history variants; owning users see appropriate scopes for “my requests” patterns.
-
-**API quality**
-
-- **Zod request validation**: Request creation and related payloads validated via Zod (replacing Joi in the audited paths).
-- **Morgan visibility**: Structured HTTP visibility via Morgan (`combined` style) integrated at the gateway.
-- **Resilient Kafka producer behavior**: Producer errors are handled so transient broker issues degrade gracefully with operational logging (does not intentionally hard-crash the entire gateway process solely on producer failure classes that are caught by the integration layer).
-
-**Go engine — Decision support (AISupport)**
-
-- **In-process ML pipeline in Go**: Feasibility (logistic regression), load model (ensemble / tree-style stack per implementation), neural priority scorer (Gorgonia-based pathway in module), fused with **deterministic greedy allocation** ensuring conflict avoidance and pragmatic utilization posture.
-- **Training strictly tied to dataset**: AISupport initializes from **`schedulord_research_dataset_12000.csv`**; heuristic/random “fake AI” shortcuts have been deliberately removed — **startup requires the CSV and successful training hydrate path** (`NewTrainedPipelineFromDataset`), otherwise the binary panics loudly (fail-fast to avoid silently serving nonsense).
-- **Dataset shipping**: CSV is tracked in-repo for reproducible builds and onboarding (see Dockerfile copy steps for containers).
-
-**Operational monitoring**
-
-- **Prometheus scraping** (gateway + Go metrics exporters as exposed in codebases).
-- **Grafana dashboards**: Enterprise-oriented “Schedulord Enterprise Observability” style dashboard JSON under `backend/monitoring/grafana/dashboards/`.
-- **Runbook**: `backend/monitoring/README.md` outlines how to validate targets, Grafana entry, checklist items pre-production.
-
-**Frontend UX**
-
-- **Analytics redesign**: KPI-style overview with tabbed sub-areas (“internal decision box” motif) separating utilization vs demand vs insights narratives.
-- **Decision Intelligence UX**: Dedicated tabs for Prediction / Simulation / Verification; resource-type **dropdown** derives from backend resource inventory; centered page titles across admin-heavy surfaces where refactored; top-of-page banners for upstream AI errors instead of pop-up-only patterns.
-- **Landing / hero**: Sovereign Three.js viewport with HEAD check for **`/dream_computer_setup.glb`** and explicit messaging if asset missing.
-
-**Operational convenience**
-
-- **Admin database maintenance endpoint**: Capability to purge all requests collections via protected API route class patterns (paired with authenticated admin workflows in gateway — see controllers/routes for exact permissioning).
+- `frontend`: `npm run dev`
+- `backend/api-gateway`: `npm run dev`
+- `backend/go-engine`: `go run ./cmd/main.go`
 
 ---
 
-### ⚠️ Incomplete / pending / environment-dependent caveats
+## ✅ Production Readiness Checklist
 
-These items are either **explicitly unfinished**, **outside repo control**, or **known to fluctuate per machine**:
-
-- **Landing 3D asset**: `/dream_computer_setup.glb` must physically exist under `frontend/public/`; the UI will render a graceful error panel when absent (asset not bundled if you omit it locally).
-- **Atlas / Mongo network reachability**: Some developer networks block SRV lookups or egress to Atlas; gateways fail fast with Mongo connection errors unrelated to Schedulord business logic correctness.
-- **Front-end production build intermittency**: Rare low-memory allocations during `vite build`/TS-heavy compilation have been observed on constrained Windows hosts — prefer CI or raise Node heap if you hit sporadic allocator failures locally.
-- **Docker Desktop friction (Windows host)**: Long-running Compose sessions can sporadically hang if the daemon is unhealthy; restarting Docker Desktop clears many classes of stuck pulls/up cycles.
-- **Go dependency / runtime nuance**: Some transitive ML stacks flagged `assume-no-moving-gc` ergonomics historically; mitigation may require explicit env toggles documented in engine runtime notes (`ASSUME_NO_MOVING_GC_UNSAFE_RISK_IT_WITH`-style escapes) until dependency trees fully align with bleeding-edge Go toolchain moves—**confirm in CI with your pinned Go toolchain**.
-- **Full end-to-end test harness**: Dedicated cross-service integration tests covering Kafka-brownout timings, deterministic ML scoring drift thresholds, and WebSocket reconciliation under partition leadership changes are aspirational—not yet committed as exhaustive CI gates.
-- **Global admin analytics fidelity**: Extremely strict tenant carve-outs occasionally leave partial chart population scenarios that should be iterated with richer synthetic fixtures.
-
-## Default credentials / secrets
-
-⚠️ **Rotate before any real deployment.**
-
-- Bootstrap admin seeds (adjust in your infra story): historically `admin@schedulord.local` / `ChangeMe123!` (see provisioning scripts/controllers).
-- Grafana defaults often `admin` / `admin` — bind behind OAuth/reverse-proxy in prod.
-
-## High-level lifecycle (conceptual)
-
-1. Client submits a request with metadata + reviewer admin + preferred resource.
-2. Request enters **pending** admin queue for the assigned reviewer.
-3. Approved items become eligible for **engine-side processing** streams (Kafka + background processors align on flags like `adminApproved`).
-4. Go engine merges **rules + greedy posture + AISupport artifacts** → publishes outcomes / persists via Kafka → gateway reconciles Mongo + broadcasts UI signals.
-
-See service-specific README fragments under `backend/monitoring/README.md` and inline code comments near `requestProcessor.js` / `allocation.go`.
-
-## Contributing / shipping workflow
-
-Branch, open PRs, run unit-level checks locally when possible (`go test ./...`, `npm test`/lint fronts), and compose-smoke infra slices before tagging releases.
-
-## License / academic use
-
-Clarify your licensing intent before redistributing the dataset amalgamation or pretrained numeric artifacts externally.
+- [ ] Frontend build passes (`npm run build`)
+- [ ] API lint passes (`npm run lint`)
+- [ ] Go engine command and health endpoints are green
+- [ ] Auth flow works for both roles (`admin`, `user`)
+- [ ] Prediction and simulation endpoints return valid payloads
+- [ ] Prometheus targets are UP
+- [ ] Grafana dashboard panels render live data
+- [ ] Demo/default credentials are rotated
+- [ ] Environment secrets are injected securely (no plain defaults)

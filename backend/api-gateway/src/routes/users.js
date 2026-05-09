@@ -15,8 +15,6 @@ const createSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().min(8).max(200).required(),
   role: Joi.string().valid("admin", "user").default("user"),
-  // Allow a legacy/alternate client payload key without rejecting the request.
-  intendedRole: Joi.string().valid("admin", "user").optional(),
 });
 
 router.post("/", authenticateJWT, requireRole("admin"), async (req, res, next) => {
