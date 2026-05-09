@@ -88,38 +88,54 @@ const LoadingState = () => (
 );
 
 export const SovereignDisplay: React.FC = () => {
-  const modelUrl = '/dream_computer_setup.glb';
+  const modelFile = 'dream_computer_setup.glb';
+  const baseUrl = import.meta.env.BASE_URL || '/';
+  const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  const preferredUrl = `${normalizedBase}${modelFile}`;
+  const fallbackUrl = `/${modelFile}`;
+  const candidateUrls = Array.from(new Set([preferredUrl, fallbackUrl]));
+  const [resolvedModelUrl, setResolvedModelUrl] = React.useState<string>(preferredUrl);
   const [modelReady, setModelReady] = React.useState<boolean | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    fetch(modelUrl, { method: 'HEAD' })
-      .then((res) => {
-        if (!mounted) return;
-        if (!res.ok) {
-          setModelReady(false);
+
+    const verifyModel = async () => {
+      for (const url of candidateUrls) {
+        try {
+          const res = await fetch(url, { method: 'HEAD' });
+          if (!res.ok) continue;
+          const contentType = (res.headers.get('content-type') || '').toLowerCase();
+          // Some hosts omit content-length on HEAD; rely on 2xx + non-html content.
+          const looksLikeModel =
+            !contentType ||
+            contentType.includes('model/gltf-binary') ||
+            contentType.includes('application/octet-stream') ||
+            contentType.includes('binary');
+          if (!looksLikeModel) continue;
+          if (!mounted) return;
+          setResolvedModelUrl(url);
+          setModelReady(true);
           return;
+        } catch {
+          // Try next candidate URL.
         }
-        const contentType = (res.headers.get('content-type') || '').toLowerCase();
-        const contentLength = Number(res.headers.get('content-length') || 0);
-        const looksLikeModel =
-          (contentType.includes('model/gltf-binary') || contentType.includes('application/octet-stream')) &&
-          contentLength > 0;
-        setModelReady(looksLikeModel);
-      })
-      .catch(() => {
-        if (mounted) setModelReady(false);
-      });
+      }
+
+      if (mounted) setModelReady(false);
+    };
+
+    verifyModel();
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [preferredUrl, fallbackUrl]);
 
   return (
     <div className="w-full h-full min-h-[450px] md:min-h-[600px] relative overflow-hidden rounded-3xl bg-[#050505] border border-white/5 shadow-2xl cursor-grab active:cursor-grabbing">
       {modelReady === false && (
         <div className="absolute top-3 left-3 right-3 z-40 rounded border border-red-500/40 bg-red-950/60 px-3 py-2 text-[11px] text-red-200">
-          Model asset missing at <span className="font-mono">{modelUrl}</span>. Rendering safe fallback 3D view.
+          Model asset missing at <span className="font-mono">{preferredUrl}</span>. Rendering safe fallback 3D view.
         </div>
       )}
       <ThreeErrorBoundary>
@@ -147,7 +163,7 @@ export const SovereignDisplay: React.FC = () => {
             <pointLight position={[-10, 5, -10]} intensity={1.2} color="#D4AF37" />
 
             <Bounds fit clip observe>
-              {modelReady ? <PhysicalHardware url={modelUrl} /> : <ProceduralFallbackModel />}
+              {modelReady ? <PhysicalHardware url={resolvedModelUrl} /> : <ProceduralFallbackModel />}
             </Bounds>
 
             <OrbitControls 
