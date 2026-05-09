@@ -23,11 +23,13 @@ Schedulord is a distributed platform for **controlled, auditable allocation** of
 7. [User roles and permissions](#user-roles-and-permissions)
 8. [API endpoints](#api-endpoints)
 9. [Database schema (collections)](#database-schema-collections)
-10. [Bootstrap and local accounts](#bootstrap-and-local-accounts)
-11. [Configuration files](#configuration-files)
-12. [Live links (local defaults)](#live-links-local-defaults)
-13. [Quick start](#quick-start)
-14. [Production readiness checklist](#production-readiness-checklist)
+10. [Bootstrap admin and demo client](#bootstrap-admin-and-demo-client)
+11. [Frontend application routes](#frontend-application-routes)
+12. [Docker Compose services and ports](#docker-compose-services-and-ports)
+13. [Configuration and environment variables](#configuration-and-environment-variables)
+14. [Live links and port matrix](#live-links-and-port-matrix)
+15. [Quick start](#quick-start)
+16. [Production readiness checklist](#production-readiness-checklist)
 
 ---
 
@@ -142,6 +144,29 @@ Schedulord targets teams that need **policy-aligned resource assignment** with t
 - JWT-based authentication with role separation (`user` vs `admin`).
 - Event-driven decoupling between the API Gateway and engine where Kafka is enabled.
 - Defensive API behavior: gateways may proxy analytics with degraded/fallback payloads when upstream components are stressed (see gateway and frontend client code).
+
+---
+
+## Frontend application routes
+
+The SPA is built with React Router. Unauthenticated visitors hitting protected paths are redirected to **`/`** (landing).
+
+| Path | Who | Purpose |
+|------|-----|---------|
+| `/` | Public | Landing page (marketing hero, 3D asset when configured). |
+| `/login/admin` | Public | Admin sign-in (`intendedRole`: `admin`). |
+| `/login/client` | Public | Client sign-in and registration (`intendedRole`: `user`). |
+| `/panel/dashboard` | Signed-in | Role-specific dashboard. |
+| `/panel/resources` | Signed-in | Browse resources (client-oriented view). |
+| `/panel/admin-resources` | Admin only | Resource administration. |
+| `/panel/requests` | Signed-in | Request list and lifecycle actions (scoped by role). |
+| `/panel/decisions` | Signed-in | Decision views for the authenticated user. |
+| `/panel/admin-request-decisions` | Admin only | Queue/history for approve/reject with prediction context. |
+| `/panel/analytics` | Signed-in | Analytics views per gateway permissions. |
+| `/panel/admin-manage` | Admin only | User and platform management screens. |
+| `/panel/monitoring` | Admin only | Grafana/Prometheus shortcuts when `VITE_*` URLs are set (see `frontend/.env.example`). |
+
+**Local dev networking:** `frontend/vite.config.ts` runs the dev server on **port 3001** and proxies **`/api`** and **`/socket.io`** to **`http://localhost:8080`**. Run the API gateway on **`PORT=8080`** (see `backend/api-gateway/.env.example`) or change the Vite proxy target to match your gateway port.
 
 ---
 
@@ -273,7 +298,7 @@ Enforcement is implemented via JWT verification middleware and `requireRole(...)
 
 ## API endpoints
 
-**Gateway base path (development):** `http://localhost:8080/api` when running the gateway on port 8080, or `http://localhost:8081/api` when using the default Compose mapping — confirm the `PORT` environment variable for your run.
+All REST routes below are mounted under **`/api`** on the gateway (see `backend/api-gateway/src/app.js`). Full URLs depend on host and **`PORT`** — see [Live links and port matrix](#live-links-and-port-matrix). Examples: `http://localhost:8080/api/...` (local Vite + gateway default) or `http://localhost:8081/api/...` (Docker Compose).
 
 ### Health and metrics
 
@@ -380,40 +405,136 @@ When running locally outside Docker, the engine port may differ from Compose def
 
 ---
 
-## Bootstrap and local accounts
+## Bootstrap admin and demo client
 
-On first startup the gateway can ensure an administrator exists using **environment-provided** bootstrap variables (names mirror `env.docker.example` and `backend/api-gateway/.env.example`). **Do not publish real emails or passwords** in README or issues; set them only in private `.env` files or your secrets manager.
+Set passwords only in **private** `.env` files (never commit them).
 
-Standard clients are created through `POST /api/auth/register` or admin-user provisioning routes, depending on your deployment policy.
+### Demo admin account
+
+Treat it like a normal login — you choose the email and password in config:
+
+| Field | You use |
+|--------|---------|
+| **Email** | The value of `BOOTSTRAP_ADMIN_EMAIL` in your `.env` |
+| **Password** | The value of `BOOTSTRAP_ADMIN_PASSWORD` in your `.env` |
+
+**Where to sign in:** **`/login/admin`** (after the frontend is running).
+
+The gateway creates this admin **once** on first startup if that email does not exist yet. Sample resources are added if the DB is empty. Copy **`env.docker.example`** → **`.env`** and fill those two variables (plus other required vars for Compose).
+
+> **Local tip:** If you run `npm run dev` without setting those variables, development defaults are applied from `backend/api-gateway/src/utils/seedData.js` — **localhost only**; set real values for Docker or any shared deploy.
+
+Use **`/login/client`** for normal users, not the admin URL (otherwise login fails with a role mismatch).
+
+#### Local quick demo (optional)
+
+If you run the gateway **without** setting `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD`, `seedData.js` applies these **development-only** defaults on first start:
+
+| Field | Default |
+|--------|---------|
+| **Email** | `admin@schedulord.local` |
+| **Password** | `ChangeMe123!` |
+
+Sign in at **`/login/admin`**. Replace these with your own `.env` values before Docker Compose, staging, production, or any internet-facing host.
+
+### Demo client account
+
+There is **no** built-in client user. Create one, then sign in at **`/login/client`**:
+
+| Step | What to do |
+|------|------------|
+| **Register** | Use the form on `/login/client`, or `POST /api/auth/register` with `name`, `email`, `password`. |
+| **Sign in** | Same email/password on `/login/client`, or `POST /api/auth/login` with `"intendedRole": "user"`. |
+
+Example registration payload (use your own email/password):
+
+```json
+{ "name": "Demo Client", "email": "demo.client@example.com", "password": "YourSecurePassword" }
+```
 
 ---
 
-## Configuration files
+## Docker Compose services and ports
+
+`docker-compose.yml` defines the following stack (service names are Compose keys). **Host ports** are what you open in a browser or curl from your machine; **internal** addresses are used between containers.
+
+| Service | Host port(s) | Role |
+|---------|----------------|------|
+| `redis` | `6379` | Cache/session backing for the gateway (`REDIS_URL` inside Compose uses `redis://redis:6379`). |
+| `zookeeper` | (none exposed) | Kafka dependency. |
+| `kafka` | `9092` | Broker for host-side clients; containers use `kafka:29092`. |
+| `go-engine` | `9090` | Go processing service; `GO_ENGINE_PORT=9090` in Compose. Gateway uses `GO_ENGINE_BASE_URL=http://go-engine:9090` by default. |
+| `api-gateway` | `8081` | Express API + Socket.IO; `PORT=8081` in Compose. REST lives under `/api`. |
+| `frontend` | `3001` → container `80` | Static SPA served via the frontend image (nginx inside container). |
+| `prometheus` | `9091` → container `9090` | Scrapes gateway and engine metrics per `backend/monitoring/prometheus/prometheus.yml`. |
+| `grafana` | `3000` | Dashboard UI; credentials from root `.env` (`GRAFANA_ADMIN_*`). |
+
+Before `docker compose up`, create a root `.env` from `env.docker.example`. Compose **requires** non-empty values for: `MONGODB_URI`, `JWT_SECRET`, `BOOTSTRAP_ADMIN_PASSWORD`, and `GRAFANA_ADMIN_PASSWORD` (see substitution errors in `docker-compose.yml` if any are missing).
+
+---
+
+## Configuration and environment variables
+
+### Files to copy or edit
 
 | File | Purpose |
 |------|---------|
-| `env.docker.example` | Root template for Docker Compose secrets and overrides |
-| `docker-compose.yml` | Service topology and ports |
-| `backend/api-gateway/.env.example` | Gateway variables for local/non-Compose runs |
-| `frontend/.env.example` | API base URL and frontend toggles for Vite |
-| `backend/monitoring/prometheus/prometheus.yml` | Scrape configuration |
-| `backend/monitoring/grafana/provisioning/*` | Datasource and dashboard provisioning |
+| `env.docker.example` | Root template for Docker Compose secrets (`cp` → `.env`). |
+| `docker-compose.yml` | Service topology, image builds, published ports. |
+| `backend/api-gateway/.env.example` | Gateway variables for **local** runs (`npm run dev` in `backend/api-gateway`). |
+| `frontend/.env.example` | Optional `VITE_GRAFANA_URL`, `VITE_PROMETHEUS_URL` for the Monitoring page. |
+| `backend/monitoring/prometheus/prometheus.yml` | Prometheus scrape targets and intervals. |
+| `backend/monitoring/grafana/provisioning/*` | Grafana datasources and dashboard provisioning. |
+
+### API Gateway (`backend/api-gateway`) — common variables
+
+| Variable | Role |
+|----------|------|
+| `PORT` | HTTP listen port (defaults to `8080` if unset; Compose sets `8081`). |
+| `MONGODB_URI` | MongoDB connection string (required). |
+| `JWT_SECRET` | Signing key for access tokens (required). |
+| `JWT_EXPIRES_IN` | Token lifetime (default `1d`). |
+| `GO_ENGINE_BASE_URL` | Primary Go engine HTTP base URL (required in `config/env.js`). |
+| `GO_ENGINE_BASE_URLS` | Optional comma-separated list consumed by `goClient.js` for failover across instances. |
+| `GO_ENGINE_TIMEOUT_MS`, `GO_ENGINE_RETRIES`, `GO_ENGINE_RETRY_DELAY_MS` | Outbound engine HTTP behavior. |
+| `GO_ENGINE_HEALTH_TTL_MS`, `GO_ENGINE_CIRCUIT_OPEN_MS` | Health cache and circuit breaker tuning. |
+| `KAFKA_BROKERS`, `KAFKA_CLIENT_ID` | Kafka producer/consumer bootstrap (comma-separated brokers supported). |
+| `REDIS_URL` | Redis connection URI. |
+| `CORS_ORIGIN` | Allowed browser origin(s); tighten beyond `*` in production. |
+| `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD` | Optional first admin seed (`ensureBootstrapData`). |
+| `REQUEST_PROCESSOR_*` | Polling, batch size, and lease duration for the async request worker. |
+| `USE_FALLBACK_ON_AI_FAILURE` | When enabled, gateway-side fallback behavior if the Go engine is unavailable (see gateway services). |
+| `API_RATE_LIMIT_PER_MIN`, `API_READ_RATE_LIMIT_PER_MIN` | Optional overrides for Express rate limiting (`src/app.js`). |
+
+### Go Engine (`backend/go-engine`)
+
+| Variable | Role |
+|----------|------|
+| `GO_ENGINE_PORT` | Listen port (`9090` in Compose; **`9095` default** when unset for local `go run` — align gateway `GO_ENGINE_BASE_URL` accordingly). |
+| `GO_ENGINE_WORKERS` | Worker count inside Compose build. |
+| `KAFKA_BROKERS` | Broker list for engine Kafka integration (Compose uses `kafka:29092`). |
 
 ---
 
-## Live links (local defaults)
+## Live links and port matrix
 
-Ports depend on whether you use Docker Compose or raw `npm`/`go run`:
+Use this matrix to avoid mixing **Compose** vs **local npm/go** ports.
+
+| Mode | Frontend | API Gateway (`/api`, `/socket.io`) | Go Engine HTTP |
+|------|-----------|-------------------------------------|----------------|
+| Docker Compose | http://localhost:3001 | http://localhost:8081 | http://localhost:9090 |
+| Local dev (default tooling) | http://localhost:3001 (Vite) | http://localhost:8080 (match Vite proxy) | http://localhost:9095 (`GO_ENGINE_PORT` default in code when unset) |
+
+**Additional local endpoints**
 
 | Service | Typical URL |
 |---------|-------------|
-| Frontend (Compose) | http://localhost:3001 |
-| API Gateway (Compose map) | http://localhost:8081 |
-| API Gateway (direct dev) | http://localhost:8080 |
+| Gateway health | `http://<gateway-host>:<port>/health` |
 | Gateway metrics | `http://<gateway-host>:<port>/metrics` |
-| Go Engine (Compose map) | http://localhost:9090 |
+| Kafka (host) | `localhost:9092` when Compose broker port is published |
+| Redis (host) | `localhost:6379` when Redis port is published |
 | Grafana (Compose) | http://localhost:3000 |
-| Prometheus (Compose host map) | http://localhost:9091 |
+| Prometheus UI (Compose host map) | http://localhost:9091 |
 
 Replace hosts with your deployment DNS names and TLS endpoints in production. **Do not embed production URLs or credentials in this repository.**
 
@@ -421,15 +542,19 @@ Replace hosts with your deployment DNS names and TLS endpoints in production. **
 
 ## Quick start
 
-**Docker Compose (recommended after configuring `.env`):**
+**Docker Compose (after root `.env` is filled in):**
 
 ```bash
 cp env.docker.example .env
-# Edit .env with real MongoDB URI, JWT secret, and passwords (never commit .env)
+# Edit .env: MONGODB_URI, JWT_SECRET, BOOTSTRAP_ADMIN_PASSWORD, GRAFANA_ADMIN_PASSWORD (never commit .env)
 docker compose up --build
 ```
 
 **Manual development (three terminals):**
+
+1. Start MongoDB, Redis, and Kafka reachable from your machine (for example local installs or a subset of Compose services).
+2. Configure `backend/api-gateway/.env` — ensure **`GO_ENGINE_BASE_URL`** points at your running engine (typically **`http://localhost:9095`** for `go run`).
+3. Run services:
 
 ```bash
 cd frontend && npm install && npm run dev
@@ -437,7 +562,7 @@ cd backend/api-gateway && npm install && npm run dev
 cd backend/go-engine && go run ./cmd/main.go
 ```
 
-Ensure MongoDB, Redis, and Kafka match the gateway/engine configuration you use locally.
+The Vite dev server proxies API traffic to **`http://localhost:8080`**; keep **`PORT=8080`** on the gateway or update **`frontend/vite.config.ts`**.
 
 ---
 
@@ -457,4 +582,4 @@ Ensure MongoDB, Redis, and Kafka match the gateway/engine configuration you use 
 
 ---
 
-Schedulord is intended as a reference architecture for intelligent scheduling workflows; adapt names, domains, and infrastructure boundaries to your organization’s standards 
+Schedulord is intended as a reference architecture for intelligent scheduling workflows; adapt names, domains, and infrastructure boundaries to your organization’s standards.
