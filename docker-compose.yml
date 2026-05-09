@@ -81,10 +81,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: "8081"
-      MONGODB_URI: "mongodb+srv://Mukilan:Mukilan0608@cluster0.yi7p6ff.mongodb.net/schedulord?retryWrites=true&w=majority&appName=Cluster0"
-      JWT_SECRET: "change-me-in-production"
-      GO_ENGINE_BASE_URL: "http://go-engine:9090"
-      CORS_ORIGIN: "*"
+      MONGODB_URI: ${MONGODB_URI:?required_in_root_env}
+      JWT_SECRET: ${JWT_SECRET:?required_in_root_env}
+      GO_ENGINE_BASE_URL: ${GO_ENGINE_BASE_URL:-http://go-engine:9090}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
 
       # 🔥 CORRECT INTERNAL KAFKA
       KAFKA_BROKERS: "kafka:29092"
@@ -92,8 +92,8 @@ services:
 
       REDIS_URL: "redis://redis:6379"
 
-      BOOTSTRAP_ADMIN_EMAIL: "admin@schedulord.local"
-      BOOTSTRAP_ADMIN_PASSWORD: "ChangeMe123!"
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@schedulord.local}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?required_in_root_env}
 
       REQUEST_PROCESSOR_POLL_MS: "500"
       REQUEST_PROCESSOR_BATCH_SIZE: "10"
@@ -143,8 +143,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?required_in_root_env}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./backend/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
