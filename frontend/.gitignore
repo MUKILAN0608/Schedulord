@@ -25,3 +25,4 @@ dist-ssr
 
 # Ignore large binary 3D models from tooling (like Tailwind CSS scanner)
 *.glb
+!public/dream_computer_setup.glb
